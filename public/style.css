@@ -124,6 +124,8 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
   border-radius: 14px;
   padding: 18px;
   margin-bottom: 16px;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .card h2 { margin: 0 0 6px; font-size: 16px; }
@@ -213,7 +215,7 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
   font-weight: 700;
 }
 
-.history-item .text { font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+.history-item .text { font-size: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 
 .history-item a {
   display: inline-block;
@@ -221,6 +223,9 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
   color: var(--accent);
   font-size: 13px;
   text-decoration: none;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  max-width: 100%;
 }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
