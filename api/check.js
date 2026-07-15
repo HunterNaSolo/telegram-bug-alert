@@ -1,11 +1,25 @@
 import * as cheerio from "cheerio";
-import { redis, CONFIG_KEY, HISTORY_KEY, HISTORY_MAX, lastSeenKey } from "./_lib/db.js";
+import {
+  redis,
+  CONFIG_KEY,
+  HISTORY_KEY,
+  HISTORY_MAX,
+  COUPONS_KEY,
+  lastSeenKey,
+} from "./_lib/db.js";
+
+function normalize(str) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .toLowerCase();
+}
 
 async function getConfig() {
   const config = (await redis.get(CONFIG_KEY)) || {};
   return {
     channels: config.channels || [],
-    keywords: (config.keywords || ["BUG"]).map((k) => k.toLowerCase()),
+    keywords: (config.keywords || ["BUG"]).map((k) => normalize(k)),
   };
 }
 
@@ -31,6 +45,16 @@ async function saveHistory(entry) {
   const item = { ...entry, timestamp: new Date().toISOString() };
   await redis.lpush(HISTORY_KEY, JSON.stringify(item));
   await redis.ltrim(HISTORY_KEY, 0, HISTORY_MAX - 1);
+}
+
+async function saveCoupon(entry) {
+  const now = Date.now();
+  const item = { ...entry, timestamp: new Date(now).toISOString() };
+  // score = timestamp, member = json (com um sufixo aleatório pra nunca colidir)
+  await redis.zadd(COUPONS_KEY, {
+    score: now,
+    member: JSON.stringify({ ...item, _id: `${now}-${Math.random().toString(36).slice(2, 8)}` }),
+  });
 }
 
 async function sendNotification(channel, keyword, text, link) {
@@ -76,8 +100,8 @@ async function checkChannel(channel, keywords) {
     if (msgId <= lastSeenId) continue;
     if (msgId > maxIdSeen) maxIdSeen = msgId;
 
-    const textLower = text.toLowerCase();
-    const matched = keywords.find((k) => textLower.includes(k));
+    const textNormalized = normalize(text);
+    const matched = keywords.find((k) => textNormalized.includes(k));
     if (matched) {
       achados++;
       const link = `https://t.me/${channel}/${msgId}`;
@@ -89,6 +113,16 @@ async function checkChannel(channel, keywords) {
         text: text.slice(0, 500),
         link,
         price,
+      });
+    }
+
+    // detecção de cupom é independente das palavras-chave configuradas
+    if (textNormalized.includes("cupom")) {
+      const link = `https://t.me/${channel}/${msgId}`;
+      await saveCoupon({
+        channel,
+        text: text.slice(0, 500),
+        link,
       });
     }
   }
