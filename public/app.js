@@ -66,6 +66,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.add("active");
     $(`#tab-${btn.dataset.tab}`).classList.add("active");
     if (btn.dataset.tab === "history") loadHistory();
+    if (btn.dataset.tab === "chart") loadChart();
   });
 });
 
@@ -192,6 +193,99 @@ $("#clear-history-btn").addEventListener("click", async () => {
   await apiFetch("/api/history", { method: "DELETE" });
   loadHistory();
 });
+
+// ---------- Chart ----------
+let priceChartInstance = null;
+const CHART_COLORS = ["#e63946", "#457b9d", "#2a9d8f", "#e9c46a", "#a855f7", "#f4a261"];
+
+function populateChannelFilter() {
+  const select = $("#chart-channel-filter");
+  const current = select.value;
+  select.innerHTML = '<option value="">Todos os grupos</option>';
+  state.channels.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    select.appendChild(opt);
+  });
+  select.value = current || "";
+}
+
+async function loadChart() {
+  populateChannelFilter();
+  const data = await apiFetch("/api/history?limit=200");
+  let items = (data.items || []).filter((i) => typeof i.price === "number");
+
+  const filterChannel = $("#chart-channel-filter").value;
+  if (filterChannel) {
+    items = items.filter((i) => i.channel === filterChannel);
+  }
+
+  items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const canvas = $("#price-chart");
+  const emptyMsg = $("#chart-empty");
+
+  if (items.length === 0) {
+    canvas.classList.add("hidden");
+    emptyMsg.classList.remove("hidden");
+    if (priceChartInstance) {
+      priceChartInstance.destroy();
+      priceChartInstance = null;
+    }
+    return;
+  }
+  canvas.classList.remove("hidden");
+  emptyMsg.classList.add("hidden");
+
+  // agrupa por canal, um dataset (linha) por grupo
+  const byChannel = {};
+  items.forEach((item) => {
+    if (!byChannel[item.channel]) byChannel[item.channel] = [];
+    byChannel[item.channel].push({
+      x: item.timestamp,
+      y: item.price,
+    });
+  });
+
+  const datasets = Object.keys(byChannel).map((channel, idx) => ({
+    label: channel,
+    data: byChannel[channel],
+    borderColor: CHART_COLORS[idx % CHART_COLORS.length],
+    backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
+    tension: 0.2,
+    spanGaps: true,
+  }));
+
+  if (priceChartInstance) {
+    priceChartInstance.destroy();
+  }
+
+  priceChartInstance = new Chart(canvas, {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true,
+      scales: {
+        x: {
+          type: "time",
+          time: { tooltipFormat: "dd/MM HH:mm" },
+          ticks: { color: "#9a9aa5" },
+          grid: { color: "#2a2a34" },
+        },
+        y: {
+          ticks: { color: "#9a9aa5", callback: (v) => `R$ ${v}` },
+          grid: { color: "#2a2a34" },
+        },
+      },
+      plugins: {
+        legend: { labels: { color: "#f1f1f1" } },
+      },
+    },
+  });
+}
+
+$("#chart-channel-filter").addEventListener("change", loadChart);
 
 // ---------- Init ----------
 if (getPassword()) {

@@ -224,3 +224,15 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
 }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #101018;
+  color: var(--text);
+  font-size: 15px;
+}
+
+#price-chart { width: 100%; }

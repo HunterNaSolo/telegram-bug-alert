@@ -8,6 +8,8 @@
 <meta name="theme-color" content="#e63946" />
 <link rel="apple-touch-icon" href="/icon-192.png" />
 <link rel="stylesheet" href="/style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
 
@@ -30,6 +32,7 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="config">Configurar</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
+    <button class="tab-btn" data-tab="chart">Gráfico</button>
   </nav>
 
   <main>
@@ -65,6 +68,18 @@
         <button id="clear-history-btn" class="danger-btn">Limpar histórico</button>
       </div>
       <div id="history-list"></div>
+    </section>
+
+    <section id="tab-chart" class="tab-content">
+      <div class="card">
+        <h2>Tendência de preço</h2>
+        <p class="hint">Mostra o valor (R$) detectado nas mensagens que bateram com suas palavras-chave, ao longo do tempo.</p>
+        <select id="chart-channel-filter"></select>
+      </div>
+      <div class="card">
+        <canvas id="price-chart" height="260"></canvas>
+        <div id="chart-empty" class="empty hidden">Nenhum preço detectado ainda nos alertas encontrados</div>
+      </div>
     </section>
   </main>
 </div>
