@@ -83,8 +83,6 @@ async function checkChannel(channel, keywords) {
   const $ = cheerio.load(html);
 
   const lastSeenId = await getLastSeenId(channel);
-  let maxIdSeen = lastSeenId;
-  let achados = 0;
 
   const messages = [];
   $(".tgme_widget_message").each((_, el) => {
@@ -96,10 +94,22 @@ async function checkChannel(channel, keywords) {
     messages.push({ msgId, text });
   });
 
-  for (const { msgId, text } of messages) {
-    if (msgId <= lastSeenId) continue;
-    if (msgId > maxIdSeen) maxIdSeen = msgId;
+  // separa só as mensagens realmente novas
+  const newMessages = messages.filter((m) => m.msgId > lastSeenId);
 
+  if (newMessages.length === 0) {
+    return { channel, novasMensagens: 0, achados: 0 };
+  }
+
+  const maxIdSeen = Math.max(lastSeenId, ...newMessages.map((m) => m.msgId));
+
+  // IMPORTANTE: salva a posição JÁ, antes de gastar tempo mandando notificação.
+  // Assim, mesmo que a função seja interrompida por timeout logo abaixo,
+  // essas mensagens não são reprocessadas (e re-notificadas) no próximo ciclo.
+  await setLastSeenId(channel, maxIdSeen);
+
+  let achados = 0;
+  for (const { msgId, text } of newMessages) {
     const textNormalized = normalize(text);
     const matched = keywords.find((k) => textNormalized.includes(k));
     if (matched) {
@@ -127,11 +137,7 @@ async function checkChannel(channel, keywords) {
     }
   }
 
-  if (maxIdSeen > lastSeenId) {
-    await setLastSeenId(channel, maxIdSeen);
-  }
-
-  return { channel, novasMensagens: maxIdSeen - lastSeenId, achados };
+  return { channel, novasMensagens: newMessages.length, achados };
 }
 
 export default async function handler(req, res) {
