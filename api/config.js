@@ -1,31 +1,22 @@
-import { redis, CONFIG_KEY } from "./_lib/db.js";
-import { checkPassword, setCors } from "./_lib/auth.js";
+import { Redis } from "@upstash/redis";
 
-export default async function handler(req, res) {
-  setCors(res);
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (!checkPassword(req, res)) return;
+export const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-  if (req.method === "GET") {
-    const config = (await redis.get(CONFIG_KEY)) || {};
-    return res.status(200).json({
-      channels: config.channels || [],
-      keywords: config.keywords || ["BUG"],
-    });
-  }
+export const HISTORY_KEY = "bugalert:history";
+export const CONFIG_KEY = "bugalert:config";
+export const COUPONS_KEY = "bugalert:coupons";
+export const HISTORY_MAX = 200;
+export const COUPON_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
-  if (req.method === "POST") {
-    const { channels, keywords } = req.body || {};
-    if (!Array.isArray(channels) || !Array.isArray(keywords)) {
-      return res.status(400).json({ error: "channels e keywords devem ser listas" });
-    }
-    const config = {
-      channels: channels.map((c) => c.trim()).filter(Boolean),
-      keywords: keywords.map((k) => k.trim()).filter(Boolean),
-    };
-    await redis.set(CONFIG_KEY, config);
-    return res.status(200).json({ ok: true });
-  }
+export function lastSeenKey(channel) {
+  return `bugalert:lastseen:${channel}`;
+}
 
-  return res.status(405).json({ error: "método não permitido" });
+// SET permanente (sem expiração) com todos os msgIds já notificados desse canal.
+// Garante que a mesma mensagem nunca dispara notificação duas vezes.
+export function notifiedSetKey(channel) {
+  return `bugalert:notified:${channel}`;
 }
