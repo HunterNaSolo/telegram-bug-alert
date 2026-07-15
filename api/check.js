@@ -18,6 +18,15 @@ async function setLastSeenId(channel, id) {
   await redis.set(lastSeenKey(channel), id);
 }
 
+function extractPrice(text) {
+  // Procura padrões tipo "R$ 99,90", "R$99", "R$ 1.234,56"
+  const match = text.match(/R\$\s?(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/i);
+  if (!match) return null;
+  const raw = match[1].replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(raw);
+  return isNaN(num) ? null : num;
+}
+
 async function saveHistory(entry) {
   const item = { ...entry, timestamp: new Date().toISOString() };
   await redis.lpush(HISTORY_KEY, JSON.stringify(item));
@@ -72,8 +81,15 @@ async function checkChannel(channel, keywords) {
     if (matched) {
       achados++;
       const link = `https://t.me/${channel}/${msgId}`;
+      const price = extractPrice(text);
       await sendNotification(channel, matched, text, link);
-      await saveHistory({ channel, keyword: matched, text: text.slice(0, 500), link });
+      await saveHistory({
+        channel,
+        keyword: matched,
+        text: text.slice(0, 500),
+        link,
+        price,
+      });
     }
   }
 
