@@ -109,35 +109,43 @@ async function checkChannel(channel, keywords) {
   await setLastSeenId(channel, maxIdSeen);
 
   let achados = 0;
+  const erros = [];
   for (const { msgId, text } of newMessages) {
-    const textNormalized = normalize(text);
-    const matched = keywords.find((k) => textNormalized.includes(k));
-    if (matched) {
-      achados++;
-      const link = `https://t.me/${channel}/${msgId}`;
-      const price = extractPrice(text);
-      await sendNotification(channel, matched, text, link);
-      await saveHistory({
-        channel,
-        keyword: matched,
-        text: text.slice(0, 500),
-        link,
-        price,
-      });
-    }
+    try {
+      const textNormalized = normalize(text);
+      const matched = keywords.find((k) => textNormalized.includes(k));
+      if (matched) {
+        achados++;
+        const link = `https://t.me/${channel}/${msgId}`;
+        const price = extractPrice(text);
+        await sendNotification(channel, matched, text, link);
+        await saveHistory({
+          channel,
+          keyword: matched,
+          text: text.slice(0, 500),
+          link,
+          price,
+        });
+      }
 
-    // detecção de cupom é independente das palavras-chave configuradas
-    if (textNormalized.includes("cupom")) {
-      const link = `https://t.me/${channel}/${msgId}`;
-      await saveCoupon({
-        channel,
-        text: text.slice(0, 500),
-        link,
-      });
+      // detecção de cupom é independente das palavras-chave configuradas
+      if (textNormalized.includes("cupom")) {
+        const link = `https://t.me/${channel}/${msgId}`;
+        await saveCoupon({
+          channel,
+          text: text.slice(0, 500),
+          link,
+        });
+      }
+    } catch (err) {
+      // Uma falha nessa mensagem específica (ex: rede instável ao notificar)
+      // não pode travar as mensagens seguintes — a posição já foi salva,
+      // então só registramos o erro e seguimos pra próxima.
+      erros.push({ msgId, error: err.message });
     }
   }
 
-  return { channel, novasMensagens: newMessages.length, achados };
+  return { channel, novasMensagens: newMessages.length, achados, erros };
 }
 
 export default async function handler(req, res) {
