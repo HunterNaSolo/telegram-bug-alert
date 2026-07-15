@@ -1,114 +1,238 @@
-# BUG Alert — app de monitoramento de promoções no Telegram
+:root {
+  --bg: #0f0f14;
+  --card: #1a1a22;
+  --accent: #e63946;
+  --accent-dark: #c1121f;
+  --text: #f1f1f1;
+  --muted: #9a9aa5;
+  --border: #2a2a34;
+}
 
-App que você instala no celular (funciona como um app de verdade, com ícone
-e tela cheia) pra gerenciar grupos e palavras-chave, e recebe notificação
-push na hora que alguma palavra (ex: "BUG") aparecer numa mensagem nova de
-um grupo/canal **público** do Telegram. Tem histórico de tudo que já foi
-encontrado.
+* { box-sizing: border-box; }
 
-Funciona só com canais/grupos que tenham link público (`t.me/nomedogrupo`).
-Grupos privados (por convite) não são cobertos por esse método.
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
 
-## Como funciona
-- Uma tela (o "app") deixa você adicionar/remover grupos e palavras-chave,
-  e ver o histórico — tudo pelo celular, sem mexer em código.
-- Por trás, uma função roda periodicamente, lê a versão web pública de cada
-  canal (`https://t.me/s/canal`), compara com a última mensagem já vista
-  (guardada no Upstash) e, se achar alguma palavra-chave numa mensagem nova,
-  registra no histórico e dispara um push via **ntfy**.
+.hidden { display: none !important; }
 
----
+.screen { min-height: 100vh; }
 
-## Passo 1 — Criar o banco de dados (Upstash, grátis, sem cartão)
+#login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
 
-1. Acesse **https://upstash.com**
-2. Clique em **"Sign Up"** e entre com sua conta do **Google** ou **GitHub**
-   (não pede cartão de crédito)
-3. No painel, clique em **"Create Database"**
-4. Dê um nome, ex: `bugalert`
-5. Tipo: **Regional**, escolha uma região perto de você (ex: `sa-east-1` São Paulo,
-   se disponível, ou `us-east-1`)
-6. Clique em **"Create"**
-7. Na página do banco que abrir, procure a seção **"REST API"**
-8. Copie os valores de **`UPSTASH_REDIS_REST_URL`** e
-   **`UPSTASH_REDIS_REST_TOKEN`** — vai usar no Passo 3
+.login-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 24px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+}
 
-Isso é tudo — bem mais rápido que a AWS.
+.login-card h1 { margin-top: 0; }
+.login-card p { color: var(--muted); font-size: 14px; }
+.login-card code { background: #000; padding: 2px 6px; border-radius: 4px; }
 
-## Passo 2 — Criar o tópico do ntfy.sh (grátis, sem conta)
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #101018;
+  color: var(--text);
+  font-size: 16px;
+  margin-bottom: 12px;
+}
 
-1. Instale o app **ntfy** na Play Store (ou App Store).
-2. Dentro do app, inscreva-se num tópico com nome único e difícil de
-   adivinhar, tipo `bugalert-seunome-8f2k` (qualquer pessoa que souber o
-   nome do tópico recebe os avisos também, então escolha algo não óbvio).
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
 
-## Passo 3 — Deploy no Vercel (grátis)
+#login-btn, .primary-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: white;
+}
 
-1. Crie uma conta em https://vercel.com (pode usar login do GitHub).
-2. Suba essa pasta pra um repositório no seu GitHub.
-3. No Vercel, clique em "Add New Project" e importe esse repositório.
-4. Antes do deploy, vá em **Settings → Environment Variables** e adicione
-   todas as variáveis do `.env.example`:
-   - `APP_PASSWORD` — a senha que você vai usar pra entrar no app
-   - `CRON_SECRET` — um token aleatório qualquer (protege a checagem automática)
-   - `NTFY_TOPIC` — o tópico que você criou no Passo 2
-   - `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` — do Passo 1
-5. Clique em Deploy.
+#login-btn:active, .primary-btn:active { background: var(--accent-dark); }
 
-## Passo 4 — Instalar o app no celular
+.error { color: var(--accent); font-size: 13px; min-height: 18px; }
 
-1. Abra `https://seu-projeto.vercel.app` no navegador do celular.
-2. Digite a senha (`APP_PASSWORD`) que você configurou.
-3. No menu do navegador, toque em **"Adicionar à tela de início"**
-   (Android/Chrome) ou **"Adicionar à Tela de Início"** (iPhone/Safari).
-4. Pronto — vai aparecer um ícone de app normal, e abrindo por ele fica em
-   tela cheia, sem barra de navegador.
-5. Dentro do app, adicione os grupos (nome do canal, sem @) e as
-   palavras-chave que quiser, e toque em "Salvar configurações".
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
 
-## Passo 5 — Fazer a checagem rodar sozinha
+header h1 { margin: 0; font-size: 20px; }
 
-O plano gratuito do Vercel limita a frequência dos cron jobs nativos, então
-o jeito mais confiável e ainda gratuito é usar um "pinger" externo:
+#logout-btn {
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  padding: 6px 10px;
+}
 
-1. Crie uma conta grátis em https://cron-job.org
-2. Crie um novo cron job apontando pra:
-   `https://seu-projeto.vercel.app/api/check?token=SEU_CRON_SECRET`
-   (troque `SEU_CRON_SECRET` pelo valor que você colocou na variável
-   `CRON_SECRET`)
-3. Defina o intervalo (ex: a cada 2 ou 5 minutos).
-4. Salve. A partir daí, ele checa os grupos sozinho e te avisa no celular
-   assim que aparecer alguma palavra-chave.
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
 
----
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  color: var(--muted);
+  padding: 14px 0;
+  border-bottom: 2px solid transparent;
+}
 
-## Resumo do fluxo completo
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
 
-```
-cron-job.org (dispara a cada poucos minutos)
-        │
-        ▼
-/api/check  →  lê grupos/palavras salvos no Upstash
-        │           │
-        │           ▼
-        │      busca https://t.me/s/canal de cada grupo
-        │           │
-        │           ▼
-        │      encontrou palavra-chave numa mensagem nova?
-        │           │
-        │      ┌────┴────┐
-        │      ▼         ▼
-        │   salva      manda push
-        │  histórico   via ntfy.sh
-        │      │         │
-        └──────┴─────────┴──→ você vê no app (histórico) e no celular (notificação)
-```
+main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
 
-## Testando localmente (opcional)
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-```bash
-npm install
-vercel dev
-```
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
 
-Depois acesse `http://localhost:3000` no navegador.
+.card h2 { margin: 0 0 6px; font-size: 16px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chip {
+  background: #101018;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.chip button {
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.add-row input { margin-bottom: 0; }
+
+.add-row button {
+  background: #101018;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+.status { text-align: center; color: var(--muted); font-size: 14px; min-height: 20px; }
+
+.history-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.history-header button {
+  flex: 1;
+  padding: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.danger-btn { color: var(--accent) !important; }
+
+.history-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.history-item .meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.history-item .keyword-badge {
+  background: var(--accent);
+  color: white;
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.history-item .text { font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+
+.history-item a {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #101018;
+  color: var(--text);
+  font-size: 15px;
+}
+
+#price-chart { width: 100%; }

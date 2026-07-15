@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>BUG Alert</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#e63946" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="stylesheet" href="/style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+
+<div id="login-screen" class="screen">
+  <div class="login-card">
+    <h1>🐛 BUG Alert</h1>
+    <p>Digite a senha do app (a mesma configurada no Vercel como <code>APP_PASSWORD</code>)</p>
+    <input id="password-input" type="password" placeholder="Senha" />
+    <button id="login-btn">Entrar</button>
+    <p id="login-error" class="error"></p>
+  </div>
+</div>
+
+<div id="app-screen" class="screen hidden">
+  <header>
+    <h1>🐛 BUG Alert</h1>
+    <button id="logout-btn" title="Sair">⎋</button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="config">Configurar</button>
+    <button class="tab-btn" data-tab="history">Histórico</button>
+    <button class="tab-btn" data-tab="chart">Gráfico</button>
+  </nav>
+
+  <main>
+    <section id="tab-config" class="tab-content active">
+
+      <div class="card">
+        <h2>Grupos monitorados</h2>
+        <p class="hint">Use o nome do canal público (o que vem depois de t.me/), sem @ e sem espaços.</p>
+        <div id="channels-list" class="chip-list"></div>
+        <div class="add-row">
+          <input id="channel-input" type="text" placeholder="ex: promobit" />
+          <button id="add-channel-btn">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Palavras-chave</h2>
+        <p class="hint">O alerta dispara se qualquer uma dessas palavras aparecer na mensagem.</p>
+        <div id="keywords-list" class="chip-list"></div>
+        <div class="add-row">
+          <input id="keyword-input" type="text" placeholder="ex: BUG" />
+          <button id="add-keyword-btn">Adicionar</button>
+        </div>
+      </div>
+
+      <button id="save-config-btn" class="primary-btn">Salvar configurações</button>
+      <p id="save-status" class="status"></p>
+    </section>
+
+    <section id="tab-history" class="tab-content">
+      <div class="history-header">
+        <button id="refresh-history-btn">↻ Atualizar</button>
+        <button id="clear-history-btn" class="danger-btn">Limpar histórico</button>
+      </div>
+      <div id="history-list"></div>
+    </section>
+
+    <section id="tab-chart" class="tab-content">
+      <div class="card">
+        <h2>Tendência de preço</h2>
+        <p class="hint">Mostra o valor (R$) detectado nas mensagens que bateram com suas palavras-chave, ao longo do tempo.</p>
+        <select id="chart-channel-filter"></select>
+      </div>
+      <div class="card">
+        <canvas id="price-chart" height="260"></canvas>
+        <div id="chart-empty" class="empty hidden">Nenhum preço detectado ainda nos alertas encontrados</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
