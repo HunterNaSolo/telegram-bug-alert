@@ -66,6 +66,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.add("active");
     $(`#tab-${btn.dataset.tab}`).classList.add("active");
     if (btn.dataset.tab === "history") loadHistory();
+    if (btn.dataset.tab === "coupons") loadCoupons();
     if (btn.dataset.tab === "chart") loadChart();
   });
 });
@@ -193,6 +194,45 @@ $("#clear-history-btn").addEventListener("click", async () => {
   await apiFetch("/api/history", { method: "DELETE" });
   loadHistory();
 });
+
+// ---------- Coupons ----------
+function timeLeft(timestamp) {
+  const expiresAt = new Date(timestamp).getTime() + 24 * 60 * 60 * 1000;
+  const diffMs = expiresAt - Date.now();
+  if (diffMs <= 0) return "expirando...";
+  const hours = Math.floor(diffMs / 3600000);
+  const mins = Math.floor((diffMs % 3600000) / 60000);
+  return `expira em ${hours}h ${mins}min`;
+}
+
+async function loadCoupons() {
+  const listEl = $("#coupons-list");
+  try {
+    const data = await apiFetch("/api/coupons");
+    const items = data.items || [];
+    if (items.length === 0) {
+      listEl.innerHTML = '<div class="empty">Nenhum cupom ativo no momento</div>';
+      return;
+    }
+    listEl.innerHTML = items
+      .map(
+        (item) => `
+      <div class="history-item">
+        <div class="meta">
+          <span>${item.channel}</span>
+          <span>${timeLeft(item.timestamp)}</span>
+        </div>
+        <span class="keyword-badge" style="background:#2a9d8f;">CUPOM</span>
+        <div class="text">${escapeHtml(item.text)}</div>
+        <a href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
+      </div>
+    `
+      )
+      .join("");
+  } catch (e) {}
+}
+
+$("#refresh-coupons-btn").addEventListener("click", loadCoupons);
 
 // ---------- Chart ----------
 let priceChartInstance = null;

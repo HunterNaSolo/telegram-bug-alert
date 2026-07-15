@@ -32,6 +32,7 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="config">Configurar</button>
     <button class="tab-btn" data-tab="history">Histórico</button>
+    <button class="tab-btn" data-tab="coupons">Cupons</button>
     <button class="tab-btn" data-tab="chart">Gráfico</button>
   </nav>
 
@@ -68,6 +69,14 @@
         <button id="clear-history-btn" class="danger-btn">Limpar histórico</button>
       </div>
       <div id="history-list"></div>
+    </section>
+
+    <section id="tab-coupons" class="tab-content">
+      <div class="history-header">
+        <button id="refresh-coupons-btn">↻ Atualizar</button>
+      </div>
+      <p class="hint" style="padding: 0 4px 12px;">Cupons somem sozinhos 24h depois de encontrados.</p>
+      <div id="coupons-list"></div>
     </section>
 
     <section id="tab-chart" class="tab-content">
