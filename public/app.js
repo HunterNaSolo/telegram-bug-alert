@@ -12,19 +12,47 @@ function setPassword(pw) {
 }
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "x-app-password": getPassword(),
-      ...(options.headers || {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s
+
+  let res;
+  try {
+    res = await fetch(path, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-password": getPassword(),
+        ...(options.headers || {}),
+      },
+    });
+  } catch (networkErr) {
+    throw new Error(
+      networkErr.name === "AbortError"
+        ? "O servidor demorou demais pra responder (timeout)."
+        : "Não foi possível conectar ao servidor."
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   if (res.status === 401) {
     localStorage.removeItem("bugalert_password");
     showLogin("Senha incorreta. Tente novamente.");
     throw new Error("unauthorized");
   }
+
+  if (!res.ok) {
+    let detail = `Erro do servidor (HTTP ${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.error) detail = body.error;
+    } catch (_) {
+      // resposta não era JSON (ex: página de erro do Vercel) — mantém a mensagem padrão
+    }
+    throw new Error(detail);
+  }
+
   return res.json();
 }
 
@@ -45,11 +73,14 @@ $("#login-btn").addEventListener("click", async () => {
   const pw = $("#password-input").value.trim();
   if (!pw) return;
   setPassword(pw);
+  $("#login-error").textContent = "Entrando...";
   try {
     await apiFetch("/api/config");
     showApp();
   } catch (e) {
-    // erro já tratado no apiFetch
+    if (e.message !== "unauthorized") {
+      $("#login-error").textContent = e.message;
+    }
   }
 });
 
@@ -107,7 +138,7 @@ async function loadConfig() {
     state.channels = data.channels || [];
     state.keywords = data.keywords || [];
     renderConfig();
-  } catch (e) {}
+  } catch (e) { console.error(e); }
 }
 
 $("#add-channel-btn").addEventListener("click", () => {
@@ -178,7 +209,7 @@ async function loadHistory() {
     `
       )
       .join("");
-  } catch (e) {}
+  } catch (e) { console.error(e); }
 }
 
 function escapeHtml(str) {
@@ -229,7 +260,7 @@ async function loadCoupons() {
     `
       )
       .join("");
-  } catch (e) {}
+  } catch (e) { console.error(e); }
 }
 
 $("#refresh-coupons-btn").addEventListener("click", loadCoupons);
