@@ -7,7 +7,9 @@ export const redis = new Redis({
 
 export const HISTORY_KEY = "bugalert:history";
 export const CONFIG_KEY = "bugalert:config";
+export const COUPONS_KEY = "bugalert:coupons";
 export const HISTORY_MAX = 200;
+export const COUPON_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 export function lastSeenKey(channel) {
   return `bugalert:lastseen:${channel}`;
