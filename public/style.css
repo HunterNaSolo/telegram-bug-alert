@@ -230,6 +230,64 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
 
+.coupon-code-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: repeating-linear-gradient(
+    45deg,
+    #0d1f1c,
+    #0d1f1c 10px,
+    #0f231f 10px,
+    #0f231f 20px
+  );
+  border: 1px dashed #2a9d8f;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+
+.coupon-code-label {
+  font-size: 11px;
+  color: #6fcf97;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.coupon-code {
+  font-family: "SF Mono", "Consolas", monospace;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #ffffff;
+  flex: 1;
+}
+
+.copy-code-btn {
+  background: #2a9d8f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.coupon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.store-link-btn {
+  color: #2a9d8f;
+  font-size: 13px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
 select {
   width: 100%;
   padding: 12px 14px;
