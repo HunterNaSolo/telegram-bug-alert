@@ -42,6 +42,36 @@ function extractPrice(text) {
   return isNaN(num) ? null : num;
 }
 
+function extractCouponCode(text) {
+  // Procura "cupom: XXXX", "cupom XXXX", "código: XXXX" etc.
+  const match = text.match(/cupom:?\s*([A-Z0-9][A-Z0-9]{3,19})/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
+function extractStoreLink(text) {
+  const match = text.match(/(https?:\/\/[^\s]+)/i);
+  return match ? match[1].replace(/[.,;)\]]+$/, "") : null;
+}
+
+const STORE_PATTERNS = [
+  { match: /meli\.la|mercadolivre|mercadolibre/i, name: "Mercado Livre" },
+  { match: /shopee/i, name: "Shopee" },
+  { match: /aliexpress|s\.click\.aliexpress/i, name: "AliExpress" },
+  { match: /amazon|amzn\.to/i, name: "Amazon" },
+  { match: /magazineluiza|magalu/i, name: "Magazine Luiza" },
+  { match: /shein/i, name: "Shein" },
+  { match: /americanas/i, name: "Americanas" },
+  { match: /casasbahia/i, name: "Casas Bahia" },
+];
+
+function detectStore(link, text) {
+  const target = `${link || ""} ${text || ""}`;
+  for (const { match, name } of STORE_PATTERNS) {
+    if (match.test(target)) return name;
+  }
+  return null;
+}
+
 async function saveHistory(entry) {
   const item = { ...entry, timestamp: new Date().toISOString() };
   await redis.lpush(HISTORY_KEY, JSON.stringify(item));
@@ -155,7 +185,15 @@ async function checkChannel(channel, keywords, couponLinks) {
       const link = `https://t.me/${channel}/${msgId}`;
       if (couponLinks.has(link)) continue;
       if (normalize(text).includes("cupom")) {
-        await saveCoupon({ channel, text: text.slice(0, 500), link });
+        const storeLink = extractStoreLink(text);
+        await saveCoupon({
+          channel,
+          text: text.slice(0, 500),
+          link,
+          couponCode: extractCouponCode(text),
+          storeLink,
+          store: detectStore(storeLink, text),
+        });
         couponLinks.add(link);
         cuponsEncontrados++;
       }
