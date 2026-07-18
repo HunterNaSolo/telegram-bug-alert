@@ -246,22 +246,50 @@ async function loadCoupons() {
       return;
     }
     listEl.innerHTML = items
-      .map(
-        (item) => `
-      <div class="history-item">
+      .map((item) => {
+        const storeLabel = item.store ? ` · ${item.store}` : "";
+        const codeBox = item.couponCode
+          ? `<div class="coupon-code-box">
+               <span class="coupon-code-label">Código</span>
+               <span class="coupon-code">${escapeHtml(item.couponCode)}</span>
+               <button class="copy-code-btn" data-code="${escapeHtml(item.couponCode)}">Copiar</button>
+             </div>`
+          : "";
+        const storeLinkBtn = item.storeLink
+          ? `<a href="${item.storeLink}" target="_blank" rel="noopener" class="store-link-btn">Ir para a loja →</a>`
+          : "";
+        return `
+      <div class="history-item coupon-card">
         <div class="meta">
-          <span>${item.channel}</span>
+          <span>${item.channel}${storeLabel}</span>
           <span>${timeLeft(item.timestamp)}</span>
         </div>
         <span class="keyword-badge" style="background:#2a9d8f;">CUPOM</span>
+        ${codeBox}
         <div class="text">${escapeHtml(item.text)}</div>
-        <a href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
+        <div class="coupon-actions">
+          ${storeLinkBtn}
+          <a href="${item.link}" target="_blank" rel="noopener">Ver no Telegram →</a>
+        </div>
       </div>
-    `
-      )
+    `;
+      })
       .join("");
   } catch (e) { console.error(e); }
 }
+
+$("#coupons-list").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest(".copy-code-btn");
+  if (!btn) return;
+  try {
+    await navigator.clipboard.writeText(btn.dataset.code);
+    const original = btn.textContent;
+    btn.textContent = "Copiado ✔";
+    setTimeout(() => (btn.textContent = original), 1500);
+  } catch (e) {
+    console.error(e);
+  }
+});
 
 $("#refresh-coupons-btn").addEventListener("click", loadCoupons);
 
