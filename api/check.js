@@ -5,6 +5,7 @@ import {
   HISTORY_KEY,
   HISTORY_MAX,
   COUPONS_KEY,
+  COUPON_TTL_MS,
   lastSeenKey,
 } from "./_lib/db.js";
 
@@ -57,6 +58,18 @@ async function saveCoupon(entry) {
   });
 }
 
+async function getExistingCouponLinks() {
+  const cutoff = Date.now() - COUPON_TTL_MS;
+  await redis.zremrangebyscore(COUPONS_KEY, 0, cutoff);
+  const raw = await redis.zrange(COUPONS_KEY, cutoff, "+inf", { byScore: true });
+  const links = new Set();
+  raw.forEach((entry) => {
+    const item = typeof entry === "string" ? JSON.parse(entry) : entry;
+    if (item.link) links.add(item.link);
+  });
+  return links;
+}
+
 async function sendNotification(channel, keyword, text, link) {
   const topic = process.env.NTFY_TOPIC;
   if (!topic) return;
@@ -72,7 +85,7 @@ async function sendNotification(channel, keyword, text, link) {
   });
 }
 
-async function checkChannel(channel, keywords) {
+async function checkChannel(channel, keywords, couponLinks) {
   const url = `https://t.me/s/${channel}`;
   const resp = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; BugAlertBot/1.0)" },
@@ -96,52 +109,56 @@ async function checkChannel(channel, keywords) {
 
   // separa só as mensagens realmente novas
   const newMessages = messages.filter((m) => m.msgId > lastSeenId);
-
-  if (newMessages.length === 0) {
-    return { channel, novasMensagens: 0, achados: 0 };
-  }
-
-  const maxIdSeen = Math.max(lastSeenId, ...newMessages.map((m) => m.msgId));
-
-  // IMPORTANTE: salva a posição JÁ, antes de gastar tempo mandando notificação.
-  // Assim, mesmo que a função seja interrompida por timeout logo abaixo,
-  // essas mensagens não são reprocessadas (e re-notificadas) no próximo ciclo.
-  await setLastSeenId(channel, maxIdSeen);
-
   let achados = 0;
   const erros = [];
-  for (const { msgId, text } of newMessages) {
-    try {
-      const textNormalized = normalize(text);
-      const matched = keywords.find((k) => textNormalized.includes(k));
-      if (matched) {
-        achados++;
-        const link = `https://t.me/${channel}/${msgId}`;
-        const price = extractPrice(text);
-        await sendNotification(channel, matched, text, link);
-        await saveHistory({
-          channel,
-          keyword: matched,
-          text: text.slice(0, 500),
-          link,
-          price,
-        });
-      }
 
-      // detecção de cupom é independente das palavras-chave configuradas
-      if (textNormalized.includes("cupom")) {
-        const link = `https://t.me/${channel}/${msgId}`;
-        await saveCoupon({
-          channel,
-          text: text.slice(0, 500),
-          link,
-        });
+  if (newMessages.length > 0) {
+    const maxIdSeen = Math.max(lastSeenId, ...newMessages.map((m) => m.msgId));
+
+    // IMPORTANTE: salva a posição JÁ, antes de gastar tempo mandando notificação.
+    // Assim, mesmo que a função seja interrompida por timeout logo abaixo,
+    // essas mensagens não são reprocessadas (e re-notificadas) no próximo ciclo.
+    await setLastSeenId(channel, maxIdSeen);
+
+    for (const { msgId, text } of newMessages) {
+      try {
+        const textNormalized = normalize(text);
+        const matched = keywords.find((k) => textNormalized.includes(k));
+        if (matched) {
+          achados++;
+          const link = `https://t.me/${channel}/${msgId}`;
+          const price = extractPrice(text);
+          await sendNotification(channel, matched, text, link);
+          await saveHistory({
+            channel,
+            keyword: matched,
+            text: text.slice(0, 500),
+            link,
+            price,
+          });
+        }
+      } catch (err) {
+        // Uma falha nessa mensagem específica (ex: rede instável ao notificar)
+        // não pode travar as mensagens seguintes — a posição já foi salva,
+        // então só registramos o erro e seguimos pra próxima.
+        erros.push({ msgId, error: err.message });
+      }
+    }
+  }
+
+  // Detecção de cupom: olha TODA a janela visível (não só mensagens novas),
+  // porque grupos costumam EDITAR uma mensagem já existente pra inserir o
+  // cupom depois. Evita duplicar checando se aquele link já foi salvo antes.
+  for (const { msgId, text } of messages) {
+    try {
+      const link = `https://t.me/${channel}/${msgId}`;
+      if (couponLinks.has(link)) continue;
+      if (normalize(text).includes("cupom")) {
+        await saveCoupon({ channel, text: text.slice(0, 500), link });
+        couponLinks.add(link);
       }
     } catch (err) {
-      // Uma falha nessa mensagem específica (ex: rede instável ao notificar)
-      // não pode travar as mensagens seguintes — a posição já foi salva,
-      // então só registramos o erro e seguimos pra próxima.
-      erros.push({ msgId, error: err.message });
+      erros.push({ msgId, error: `cupom: ${err.message}` });
     }
   }
 
@@ -160,9 +177,10 @@ export default async function handler(req, res) {
   }
 
   const results = [];
+  const couponLinks = await getExistingCouponLinks();
   for (const channel of channels) {
     try {
-      results.push(await checkChannel(channel, keywords));
+      results.push(await checkChannel(channel, keywords, couponLinks));
     } catch (err) {
       results.push({ channel, error: err.message });
     }
