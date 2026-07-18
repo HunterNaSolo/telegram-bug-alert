@@ -149,6 +149,7 @@ async function checkChannel(channel, keywords, couponLinks) {
   // Detecção de cupom: olha TODA a janela visível (não só mensagens novas),
   // porque grupos costumam EDITAR uma mensagem já existente pra inserir o
   // cupom depois. Evita duplicar checando se aquele link já foi salvo antes.
+  let cuponsEncontrados = 0;
   for (const { msgId, text } of messages) {
     try {
       const link = `https://t.me/${channel}/${msgId}`;
@@ -156,13 +157,21 @@ async function checkChannel(channel, keywords, couponLinks) {
       if (normalize(text).includes("cupom")) {
         await saveCoupon({ channel, text: text.slice(0, 500), link });
         couponLinks.add(link);
+        cuponsEncontrados++;
       }
     } catch (err) {
       erros.push({ msgId, error: `cupom: ${err.message}` });
     }
   }
 
-  return { channel, novasMensagens: newMessages.length, achados, erros };
+  return {
+    channel,
+    novasMensagens: newMessages.length,
+    achados,
+    cuponsEncontrados,
+    janelaVisivel: messages.length,
+    erros,
+  };
 }
 
 export default async function handler(req, res) {
