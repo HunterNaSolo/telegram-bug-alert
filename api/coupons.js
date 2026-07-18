@@ -13,7 +13,8 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     // pega os que ainda estão dentro das últimas 24h, mais recente primeiro
-    const raw = await redis.zrange(COUPONS_KEY, cutoff, "+inf", {
+    // (com rev:true, o Redis exige a faixa invertida: maior primeiro, depois o menor)
+    const raw = await redis.zrange(COUPONS_KEY, "+inf", cutoff, {
       byScore: true,
       rev: true,
     });
