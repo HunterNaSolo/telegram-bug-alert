@@ -297,6 +297,11 @@ $("#refresh-coupons-btn").addEventListener("click", loadCoupons);
 let priceChartInstance = null;
 const CHART_COLORS = ["#e63946", "#457b9d", "#2a9d8f", "#e9c46a", "#a855f7", "#f4a261"];
 
+function productLabel(text) {
+  const firstLine = (text || "").split("\n").map((l) => l.trim()).find(Boolean) || "";
+  return firstLine.length > 60 ? firstLine.slice(0, 60) + "…" : firstLine;
+}
+
 function populateChannelFilter() {
   const select = $("#chart-channel-filter");
   const current = select.value;
@@ -310,18 +315,80 @@ function populateChannelFilter() {
   select.value = current || "";
 }
 
+function formatMoney(v) {
+  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function populateProductFilter(allItems) {
+  const select = $("#chart-product-filter");
+  const current = select.value;
+  const channelFilter = $("#chart-channel-filter").value;
+
+  const pool = channelFilter ? allItems.filter((i) => i.channel === channelFilter) : allItems;
+  const seen = new Set();
+  const products = [];
+  pool.forEach((item) => {
+    const label = productLabel(item.text);
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      products.push(label);
+    }
+  });
+
+  select.innerHTML = '<option value="">Todos os produtos</option>';
+  products.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+  select.value = products.includes(current) ? current : "";
+}
+
+function updateSummary(items) {
+  const summaryEl = $("#chart-summary");
+  if (items.length === 0) {
+    summaryEl.classList.add("hidden");
+    return;
+  }
+  summaryEl.classList.remove("hidden");
+  const prices = items.map((i) => i.price);
+  const current = prices[prices.length - 1];
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const first = prices[0];
+  const changePct = first === 0 ? 0 : ((current - first) / first) * 100;
+
+  $("#stat-current").textContent = formatMoney(current);
+  $("#stat-min").textContent = formatMoney(min);
+  $("#stat-max").textContent = formatMoney(max);
+
+  const changeEl = $("#stat-change");
+  const sign = changePct > 0 ? "+" : "";
+  changeEl.textContent = `${sign}${changePct.toFixed(1)}%`;
+  changeEl.className = "chart-stat-value " + (changePct < 0 ? "stat-low" : changePct > 0 ? "stat-high" : "");
+}
+
 async function loadChart() {
   const canvas = $("#price-chart");
   const emptyMsg = $("#chart-empty");
+  const summaryEl = $("#chart-summary");
 
   try {
     populateChannelFilter();
     const data = await apiFetch("/api/history?limit=200");
-    let items = (data.items || []).filter((i) => typeof i.price === "number");
+    const allItems = (data.items || []).filter((i) => typeof i.price === "number");
 
+    populateProductFilter(allItems);
+
+    let items = allItems;
     const filterChannel = $("#chart-channel-filter").value;
     if (filterChannel) {
       items = items.filter((i) => i.channel === filterChannel);
+    }
+    const filterProduct = $("#chart-product-filter").value;
+    if (filterProduct) {
+      items = items.filter((i) => productLabel(i.text) === filterProduct);
     }
 
     items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -329,6 +396,7 @@ async function loadChart() {
     if (items.length === 0) {
       canvas.classList.add("hidden");
       emptyMsg.classList.remove("hidden");
+      summaryEl.classList.add("hidden");
       emptyMsg.textContent = "Nenhum preço detectado ainda nos alertas encontrados";
       if (priceChartInstance) {
         priceChartInstance.destroy();
@@ -338,6 +406,13 @@ async function loadChart() {
     }
     canvas.classList.remove("hidden");
     emptyMsg.classList.add("hidden");
+
+    // Se um produto específico está selecionado, mostra o resumo (min/max/variação)
+    if (filterProduct) {
+      updateSummary(items);
+    } else {
+      summaryEl.classList.add("hidden");
+    }
 
     // agrupa por canal, um dataset (linha) por grupo
     const byChannel = {};
@@ -349,21 +424,40 @@ async function loadChart() {
       });
     });
 
-    const datasets = Object.keys(byChannel).map((channel, idx) => ({
-      label: channel,
-      data: byChannel[channel],
-      borderColor: CHART_COLORS[idx % CHART_COLORS.length],
-      backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
-      tension: 0.2,
-      spanGaps: true,
-    }));
+    if (typeof Chart === "undefined") {
+      throw new Error("Biblioteca de gráficos não carregou (Chart.js).");
+    }
+
+    const channelNames = Object.keys(byChannel);
+    const datasets = channelNames.map((channel, idx) => {
+      const color = CHART_COLORS[idx % CHART_COLORS.length];
+      return {
+        label: channel,
+        data: byChannel[channel],
+        borderColor: color,
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: color,
+        pointBorderColor: "#0f0f14",
+        pointBorderWidth: 1.5,
+        tension: 0.3,
+        spanGaps: true,
+        fill: true,
+        backgroundColor: (ctx) => {
+          const { chart } = ctx;
+          const { ctx: c, chartArea } = chart;
+          if (!chartArea) return `${color}22`;
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, `${color}55`);
+          gradient.addColorStop(1, `${color}02`);
+          return gradient;
+        },
+      };
+    });
 
     if (priceChartInstance) {
       priceChartInstance.destroy();
-    }
-
-    if (typeof Chart === "undefined") {
-      throw new Error("Biblioteca de gráficos não carregou (Chart.js).");
     }
 
     priceChartInstance = new Chart(canvas, {
@@ -371,32 +465,52 @@ async function loadChart() {
       data: { datasets },
       options: {
         responsive: true,
+        interaction: { mode: "index", intersect: false },
         scales: {
           x: {
             type: "time",
             time: { tooltipFormat: "dd/MM HH:mm" },
             ticks: { color: "#9a9aa5" },
-            grid: { color: "#2a2a34" },
+            grid: { color: "#20202a" },
+            border: { color: "#2a2a34" },
           },
           y: {
             ticks: { color: "#9a9aa5", callback: (v) => `R$ ${v}` },
-            grid: { color: "#2a2a34" },
+            grid: { color: "#20202a" },
+            border: { color: "#2a2a34" },
           },
         },
         plugins: {
-          legend: { labels: { color: "#f1f1f1" } },
+          legend: {
+            display: channelNames.length > 1,
+            labels: { color: "#f1f1f1", usePointStyle: true, boxWidth: 8 },
+          },
+          tooltip: {
+            backgroundColor: "#1a1a22",
+            titleColor: "#f1f1f1",
+            bodyColor: "#f1f1f1",
+            borderColor: "#2a2a34",
+            borderWidth: 1,
+            padding: 10,
+            displayColors: true,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.parsed.y)}`,
+            },
+          },
         },
       },
     });
   } catch (e) {
     console.error(e);
     canvas.classList.add("hidden");
+    summaryEl.classList.add("hidden");
     emptyMsg.classList.remove("hidden");
     emptyMsg.textContent = `Não foi possível carregar o gráfico: ${e.message}`;
   }
 }
 
 $("#chart-channel-filter").addEventListener("change", loadChart);
+$("#chart-product-filter").addEventListener("change", loadChart);
 
 // ---------- Init ----------
 if (getPassword()) {
