@@ -297,11 +297,6 @@ $("#refresh-coupons-btn").addEventListener("click", loadCoupons);
 let priceChartInstance = null;
 const CHART_COLORS = ["#e63946", "#457b9d", "#2a9d8f", "#e9c46a", "#a855f7", "#f4a261"];
 
-function productLabel(text) {
-  const firstLine = (text || "").split("\n").map((l) => l.trim()).find(Boolean) || "";
-  return firstLine.length > 60 ? firstLine.slice(0, 60) + "…" : firstLine;
-}
-
 function populateChannelFilter() {
   const select = $("#chart-channel-filter");
   const current = select.value;
@@ -319,30 +314,30 @@ function formatMoney(v) {
   return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function populateProductFilter(allItems) {
+function populateTagFilter(allItems) {
   const select = $("#chart-product-filter");
   const current = select.value;
   const channelFilter = $("#chart-channel-filter").value;
 
   const pool = channelFilter ? allItems.filter((i) => i.channel === channelFilter) : allItems;
   const seen = new Set();
-  const products = [];
+  const tags = [];
   pool.forEach((item) => {
-    const label = productLabel(item.text);
-    if (label && !seen.has(label)) {
-      seen.add(label);
-      products.push(label);
+    const tag = item.keyword;
+    if (tag && !seen.has(tag)) {
+      seen.add(tag);
+      tags.push(tag);
     }
   });
 
-  select.innerHTML = '<option value="">Todos os produtos</option>';
-  products.forEach((p) => {
+  select.innerHTML = '<option value="">Todas as tags</option>';
+  tags.forEach((t) => {
     const opt = document.createElement("option");
-    opt.value = p;
-    opt.textContent = p;
+    opt.value = t;
+    opt.textContent = t;
     select.appendChild(opt);
   });
-  select.value = products.includes(current) ? current : "";
+  select.value = tags.includes(current) ? current : "";
 }
 
 function updateSummary(items) {
@@ -379,16 +374,16 @@ async function loadChart() {
     const data = await apiFetch("/api/history?limit=200");
     const allItems = (data.items || []).filter((i) => typeof i.price === "number");
 
-    populateProductFilter(allItems);
+    populateTagFilter(allItems);
 
     let items = allItems;
     const filterChannel = $("#chart-channel-filter").value;
     if (filterChannel) {
       items = items.filter((i) => i.channel === filterChannel);
     }
-    const filterProduct = $("#chart-product-filter").value;
-    if (filterProduct) {
-      items = items.filter((i) => productLabel(i.text) === filterProduct);
+    const filterTag = $("#chart-product-filter").value;
+    if (filterTag) {
+      items = items.filter((i) => i.keyword === filterTag);
     }
 
     items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -407,8 +402,8 @@ async function loadChart() {
     canvas.classList.remove("hidden");
     emptyMsg.classList.add("hidden");
 
-    // Se um produto específico está selecionado, mostra o resumo (min/max/variação)
-    if (filterProduct) {
+    // Se uma tag específica está selecionada, mostra o resumo (min/max/variação)
+    if (filterTag) {
       updateSummary(items);
     } else {
       summaryEl.classList.add("hidden");
