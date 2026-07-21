@@ -299,3 +299,39 @@ select {
 }
 
 #price-chart { width: 100%; }
+
+.chart-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chart-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: "SF Mono", "Consolas", monospace;
+}
+
+.stat-low { color: #4ade80; }
+.stat-high { color: var(--accent); }
+
+@media (max-width: 420px) {
+  .chart-summary { grid-template-columns: repeat(2, 1fr); row-gap: 14px; }
+}
