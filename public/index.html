@@ -84,8 +84,27 @@
         <h2>Tendência de preço</h2>
         <p class="hint">Mostra o valor (R$) detectado nas mensagens que bateram com suas palavras-chave, ao longo do tempo.</p>
         <select id="chart-channel-filter"></select>
+        <select id="chart-product-filter" style="margin-top: 10px;"></select>
       </div>
       <div class="card">
+        <div id="chart-summary" class="chart-summary hidden">
+          <div class="chart-stat">
+            <span class="chart-stat-label">Atual</span>
+            <span id="stat-current" class="chart-stat-value">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Mínima</span>
+            <span id="stat-min" class="chart-stat-value stat-low">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Máxima</span>
+            <span id="stat-max" class="chart-stat-value stat-high">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Variação</span>
+            <span id="stat-change" class="chart-stat-value">—</span>
+          </div>
+        </div>
         <canvas id="price-chart" height="260"></canvas>
         <div id="chart-empty" class="empty hidden">Nenhum preço detectado ainda nos alertas encontrados</div>
       </div>
