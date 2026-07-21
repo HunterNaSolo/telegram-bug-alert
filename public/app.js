@@ -311,77 +311,89 @@ function populateChannelFilter() {
 }
 
 async function loadChart() {
-  populateChannelFilter();
-  const data = await apiFetch("/api/history?limit=200");
-  let items = (data.items || []).filter((i) => typeof i.price === "number");
-
-  const filterChannel = $("#chart-channel-filter").value;
-  if (filterChannel) {
-    items = items.filter((i) => i.channel === filterChannel);
-  }
-
-  items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
   const canvas = $("#price-chart");
   const emptyMsg = $("#chart-empty");
 
-  if (items.length === 0) {
-    canvas.classList.add("hidden");
-    emptyMsg.classList.remove("hidden");
+  try {
+    populateChannelFilter();
+    const data = await apiFetch("/api/history?limit=200");
+    let items = (data.items || []).filter((i) => typeof i.price === "number");
+
+    const filterChannel = $("#chart-channel-filter").value;
+    if (filterChannel) {
+      items = items.filter((i) => i.channel === filterChannel);
+    }
+
+    items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    if (items.length === 0) {
+      canvas.classList.add("hidden");
+      emptyMsg.classList.remove("hidden");
+      emptyMsg.textContent = "Nenhum preço detectado ainda nos alertas encontrados";
+      if (priceChartInstance) {
+        priceChartInstance.destroy();
+        priceChartInstance = null;
+      }
+      return;
+    }
+    canvas.classList.remove("hidden");
+    emptyMsg.classList.add("hidden");
+
+    // agrupa por canal, um dataset (linha) por grupo
+    const byChannel = {};
+    items.forEach((item) => {
+      if (!byChannel[item.channel]) byChannel[item.channel] = [];
+      byChannel[item.channel].push({
+        x: item.timestamp,
+        y: item.price,
+      });
+    });
+
+    const datasets = Object.keys(byChannel).map((channel, idx) => ({
+      label: channel,
+      data: byChannel[channel],
+      borderColor: CHART_COLORS[idx % CHART_COLORS.length],
+      backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
+      tension: 0.2,
+      spanGaps: true,
+    }));
+
     if (priceChartInstance) {
       priceChartInstance.destroy();
-      priceChartInstance = null;
     }
-    return;
-  }
-  canvas.classList.remove("hidden");
-  emptyMsg.classList.add("hidden");
 
-  // agrupa por canal, um dataset (linha) por grupo
-  const byChannel = {};
-  items.forEach((item) => {
-    if (!byChannel[item.channel]) byChannel[item.channel] = [];
-    byChannel[item.channel].push({
-      x: item.timestamp,
-      y: item.price,
+    if (typeof Chart === "undefined") {
+      throw new Error("Biblioteca de gráficos não carregou (Chart.js).");
+    }
+
+    priceChartInstance = new Chart(canvas, {
+      type: "line",
+      data: { datasets },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            type: "time",
+            time: { tooltipFormat: "dd/MM HH:mm" },
+            ticks: { color: "#9a9aa5" },
+            grid: { color: "#2a2a34" },
+          },
+          y: {
+            ticks: { color: "#9a9aa5", callback: (v) => `R$ ${v}` },
+            grid: { color: "#2a2a34" },
+          },
+        },
+        plugins: {
+          legend: { labels: { color: "#f1f1f1" } },
+        },
+      },
     });
-  });
-
-  const datasets = Object.keys(byChannel).map((channel, idx) => ({
-    label: channel,
-    data: byChannel[channel],
-    borderColor: CHART_COLORS[idx % CHART_COLORS.length],
-    backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
-    tension: 0.2,
-    spanGaps: true,
-  }));
-
-  if (priceChartInstance) {
-    priceChartInstance.destroy();
+  } catch (e) {
+    console.error(e);
+    canvas.classList.add("hidden");
+    emptyMsg.classList.remove("hidden");
+    emptyMsg.textContent = `Não foi possível carregar o gráfico: ${e.message}`;
   }
-
-  priceChartInstance = new Chart(canvas, {
-    type: "line",
-    data: { datasets },
-    options: {
-      responsive: true,
-      scales: {
-        x: {
-          type: "time",
-          time: { tooltipFormat: "dd/MM HH:mm" },
-          ticks: { color: "#9a9aa5" },
-          grid: { color: "#2a2a34" },
-        },
-        y: {
-          ticks: { color: "#9a9aa5", callback: (v) => `R$ ${v}` },
-          grid: { color: "#2a2a34" },
-        },
-      },
-      plugins: {
-        legend: { labels: { color: "#f1f1f1" } },
-      },
-    },
-  });
 }
 
 $("#chart-channel-filter").addEventListener("change", loadChart);
