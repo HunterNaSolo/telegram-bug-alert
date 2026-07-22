@@ -371,8 +371,14 @@ async function loadChart() {
 
   try {
     populateChannelFilter();
-    const data = await apiFetch("/api/history?limit=200");
-    const allItems = (data.items || []).filter((i) => typeof i.price === "number");
+    const data = await apiFetch("/api/history?limit=2000");
+    let allItems = (data.items || []).filter((i) => typeof i.price === "number");
+
+    const periodDays = parseInt($("#chart-period-filter").value, 10);
+    if (periodDays > 0) {
+      const cutoff = Date.now() - periodDays * 24 * 60 * 60 * 1000;
+      allItems = allItems.filter((i) => new Date(i.timestamp).getTime() >= cutoff);
+    }
 
     populateTagFilter(allItems);
 
@@ -506,6 +512,7 @@ async function loadChart() {
 
 $("#chart-channel-filter").addEventListener("change", loadChart);
 $("#chart-product-filter").addEventListener("change", loadChart);
+$("#chart-period-filter").addEventListener("change", loadChart);
 
 // ---------- Init ----------
 if (getPassword()) {
