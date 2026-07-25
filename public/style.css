@@ -1,11 +1,14 @@
 :root {
-  --bg: #0f0f14;
-  --card: #1a1a22;
+  --bg: #0b0b10;
+  --card: #15151c;
   --accent: #e63946;
   --accent-dark: #c1121f;
-  --text: #f1f1f1;
-  --muted: #9a9aa5;
-  --border: #2a2a34;
+  --text: #f2f2f5;
+  --muted: #8b8b96;
+  --border: #23232d;
+  --price: #ffb020;
+  --font-display: "Space Grotesk", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -39,7 +42,7 @@ body {
   text-align: center;
 }
 
-.login-card h1 { margin-top: 0; }
+.login-card h1 { margin-top: 0; font-family: var(--font-display); font-weight: 700; }
 .login-card p { color: var(--muted); font-size: 14px; }
 .login-card code { background: #000; padding: 2px 6px; border-radius: 4px; }
 
@@ -85,7 +88,7 @@ header {
   z-index: 10;
 }
 
-header h1 { margin: 0; font-size: 20px; }
+header h1 { margin: 0; font-size: 20px; font-family: var(--font-display); font-weight: 700; }
 
 #logout-btn {
   background: transparent;
@@ -190,45 +193,118 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
 
 .danger-btn { color: var(--accent) !important; }
 
-.history-item {
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+/* ---------- Deal Card (ticket) ---------- */
+
+.deal-card {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 16px 18px 16px 24px;
+  margin-bottom: 14px;
+  overflow: visible;
+}
+
+/* furo de ticket na lateral esquerda */
+.deal-card::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.deal-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.history-item .meta {
+.deal-card-header-left {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.history-item .keyword-badge {
-  background: var(--accent);
-  color: white;
-  border-radius: 6px;
-  padding: 1px 8px;
+.deal-tag {
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #0b0b10;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.history-item .text { font-size: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.deal-channel {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.history-item a {
-  display: inline-block;
-  margin-top: 8px;
+.deal-time {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.deal-price {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--price);
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.deal-price-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.deal-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.deal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
   color: var(--accent);
   font-size: 13px;
+  font-weight: 600;
   text-decoration: none;
   overflow-wrap: anywhere;
-  word-break: break-all;
-  max-width: 100%;
 }
-
-.empty { text-align: center; color: var(--muted); padding: 40px 0; }
 
 .coupon-code-box {
   display: flex;
@@ -255,7 +331,7 @@ main { padding: 16px 20px 40px; max-width: 640px; margin: 0 auto; }
 }
 
 .coupon-code {
-  font-family: "SF Mono", "Consolas", monospace;
+  font-family: var(--font-mono);
   font-size: 17px;
   font-weight: 700;
   letter-spacing: 1px;

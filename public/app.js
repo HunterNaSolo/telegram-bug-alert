@@ -185,6 +185,14 @@ function timeAgo(iso) {
   return `${Math.floor(hours / 24)}d atrás`;
 }
 
+const TAG_COLORS = ["#ff6b6b", "#4ecdc4", "#ffd93d", "#a78bfa", "#38bdf8", "#fb923c", "#a3e635", "#f472b6"];
+
+function tagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
 async function loadHistory() {
   const listEl = $("#history-list");
   try {
@@ -195,19 +203,26 @@ async function loadHistory() {
       return;
     }
     listEl.innerHTML = items
-      .map(
-        (item) => `
-      <div class="history-item">
-        <div class="meta">
-          <span>${item.channel}</span>
-          <span>${timeAgo(item.timestamp)}</span>
+      .map((item) => {
+        const priceHtml =
+          typeof item.price === "number"
+            ? `<span class="deal-price-label">Preço encontrado</span><div class="deal-price">${formatMoney(item.price)}</div>`
+            : "";
+        return `
+      <div class="deal-card">
+        <div class="deal-card-header">
+          <div class="deal-card-header-left">
+            <span class="deal-tag" style="background:${tagColor(item.keyword)}">${escapeHtml(item.keyword)}</span>
+            <span class="deal-channel">${escapeHtml(item.channel)}</span>
+          </div>
+          <span class="deal-time">${timeAgo(item.timestamp)}</span>
         </div>
-        <span class="keyword-badge">${item.keyword}</span>
-        <div class="text">${escapeHtml(item.text)}</div>
-        <a href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
+        ${priceHtml}
+        <div class="deal-text">${escapeHtml(item.text)}</div>
+        <a class="deal-link" href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
       </div>
-    `
-      )
+    `;
+      })
       .join("");
   } catch (e) { console.error(e); }
 }
@@ -259,17 +274,19 @@ async function loadCoupons() {
           ? `<a href="${item.storeLink}" target="_blank" rel="noopener" class="store-link-btn">Ir para a loja →</a>`
           : "";
         return `
-      <div class="history-item coupon-card">
-        <div class="meta">
-          <span>${item.channel}${storeLabel}</span>
-          <span>${timeLeft(item.timestamp)}</span>
+      <div class="deal-card">
+        <div class="deal-card-header">
+          <div class="deal-card-header-left">
+            <span class="deal-tag" style="background:#4ecdc4">CUPOM</span>
+            <span class="deal-channel">${escapeHtml(item.channel)}${storeLabel}</span>
+          </div>
+          <span class="deal-time">${timeLeft(item.timestamp)}</span>
         </div>
-        <span class="keyword-badge" style="background:#2a9d8f;">CUPOM</span>
         ${codeBox}
-        <div class="text">${escapeHtml(item.text)}</div>
+        <div class="deal-text">${escapeHtml(item.text)}</div>
         <div class="coupon-actions">
           ${storeLinkBtn}
-          <a href="${item.link}" target="_blank" rel="noopener">Ver no Telegram →</a>
+          <a class="deal-link" href="${item.link}" target="_blank" rel="noopener">Ver no Telegram →</a>
         </div>
       </div>
     `;
