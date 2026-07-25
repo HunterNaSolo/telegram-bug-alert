@@ -16,11 +16,21 @@ function normalize(str) {
     .toLowerCase();
 }
 
+// Suporta sintaxe "café -xícara -caneca": a frase antes do primeiro " -" é o
+// termo positivo obrigatório, e cada " -termo" seguinte é uma exclusão —
+// se a mensagem contiver qualquer termo de exclusão, ela é descartada mesmo
+// batendo com o termo positivo.
+function parseKeyword(raw) {
+  const parts = raw.split(/\s+-/).map((p) => normalize(p.trim())).filter(Boolean);
+  const [positive, ...excludes] = parts;
+  return { positive, excludes };
+}
+
 async function getConfig() {
   const config = (await redis.get(CONFIG_KEY)) || {};
   return {
     channels: config.channels || [],
-    keywords: (config.keywords || ["BUG"]).map((k) => normalize(k)),
+    keywords: (config.keywords || ["BUG"]).map((k) => parseKeyword(k)),
   };
 }
 
@@ -153,15 +163,20 @@ async function checkChannel(channel, keywords, couponLinks) {
     for (const { msgId, text } of newMessages) {
       try {
         const textNormalized = normalize(text);
-        const matched = keywords.find((k) => textNormalized.includes(k));
+        const matched = keywords.find(
+          ({ positive, excludes }) =>
+            positive &&
+            textNormalized.includes(positive) &&
+            !excludes.some((ex) => textNormalized.includes(ex))
+        );
         if (matched) {
           achados++;
           const link = `https://t.me/${channel}/${msgId}`;
           const price = extractPrice(text);
-          await sendNotification(channel, matched, text, link);
+          await sendNotification(channel, matched.positive, text, link);
           await saveHistory({
             channel,
-            keyword: matched,
+            keyword: matched.positive,
             text: text.slice(0, 500),
             link,
             price,
