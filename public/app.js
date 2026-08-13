@@ -121,15 +121,45 @@ function renderChips(listEl, items, onRemove) {
   });
 }
 
+function renderKeywordChips() {
+  const container = $("#keywords-list");
+  if (state.keywords.length === 0) {
+    container.innerHTML = '<span class="hint">Nenhuma ainda</span>';
+    return;
+  }
+  container.innerHTML = "";
+  state.keywords.forEach((kw, idx) => {
+    // suporta tanto o formato antigo (string "café -xícara") quanto o novo (objeto)
+    const isOld = typeof kw === "string";
+    const main = isOld ? kw.split(/\s+-/)[0].trim() : kw.main;
+    const synCount = isOld ? 0 : (kw.synonyms || []).length;
+    const excCount = isOld ? kw.split(/\s+-/).length - 1 : (kw.excludes || []).length;
+    const details = [];
+    if (synCount > 0) details.push(`+${synCount} outra(s)`);
+    if (excCount > 0) details.push(`-${excCount} exclusão(ões)`);
+
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.innerHTML = `<span>${escapeHtml(main)}${
+      details.length ? ` <span style="color:#8b8b96;font-size:11px;">(${details.join(", ")})</span>` : ""
+    }</span>`;
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => {
+      state.keywords.splice(idx, 1);
+      renderConfig();
+    });
+    chip.appendChild(removeBtn);
+    container.appendChild(chip);
+  });
+}
+
 function renderConfig() {
   renderChips($("#channels-list"), state.channels, (idx) => {
     state.channels.splice(idx, 1);
     renderConfig();
   });
-  renderChips($("#keywords-list"), state.keywords, (idx) => {
-    state.keywords.splice(idx, 1);
-    renderConfig();
-  });
+  renderKeywordChips();
 }
 
 async function loadConfig() {
@@ -151,11 +181,21 @@ $("#add-channel-btn").addEventListener("click", () => {
 });
 
 $("#add-keyword-btn").addEventListener("click", () => {
-  const input = $("#keyword-input");
-  const val = input.value.trim();
-  if (!val) return;
-  if (!state.keywords.includes(val)) state.keywords.push(val);
-  input.value = "";
+  const main = $("#keyword-main-input").value.trim();
+  if (!main) return;
+  const synonyms = $("#keyword-synonyms-input")
+    .value.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const excludes = $("#keyword-excludes-input")
+    .value.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  state.keywords.push({ main, synonyms, excludes });
+  $("#keyword-main-input").value = "";
+  $("#keyword-synonyms-input").value = "";
+  $("#keyword-excludes-input").value = "";
   renderConfig();
 });
 

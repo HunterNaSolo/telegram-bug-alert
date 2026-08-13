@@ -54,10 +54,12 @@
 
       <div class="card">
         <h2>Palavras-chave</h2>
-        <p class="hint">O alerta dispara se qualquer uma dessas palavras aparecer na mensagem. Pra excluir termos (ex: quer "café" mas não "xícara" ou "caneca"), escreva <code>café -xícara -caneca</code>.</p>
+        <p class="hint">O alerta dispara se a palavra principal ou qualquer uma das outras palavras aparecer na mensagem.</p>
         <div id="keywords-list" class="chip-list"></div>
-        <div class="add-row">
-          <input id="keyword-input" type="text" placeholder="ex: café -xícara -caneca" />
+        <div class="add-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+          <input id="keyword-main-input" type="text" placeholder="Palavra principal (ex: café)" />
+          <input id="keyword-synonyms-input" type="text" placeholder="Outras palavras que também valem, separadas por vírgula (ex: pó de café, café solúvel)" />
+          <input id="keyword-excludes-input" type="text" placeholder="Excluir se tiver, separadas por vírgula (ex: xícara, caneca)" />
           <button id="add-keyword-btn">Adicionar</button>
         </div>
       </div>
