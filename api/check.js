@@ -13,30 +13,52 @@ function normalize(str) {
   return str
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // remove acentos
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[.,!?;:()"'`]/g, "") // remove pontuação comum
+    .replace(/\s+/g, " ") // colapsa espaços duplicados/múltiplos em um só
+    .trim(); // remove espaço no início/fim
+}
+
+// Trata singular/plural de forma simples (adiciona ou remove um "s" final),
+// suficiente pra maioria dos casos em português (café/cafés, xícara/xícaras).
+function pluralVariants(term) {
+  const variants = new Set([term]);
+  if (term.endsWith("s") && term.length > 3) variants.add(term.slice(0, -1));
+  else if (term) variants.add(term + "s");
+  return [...variants];
+}
+
+function textHasTerm(textNormalized, term) {
+  return pluralVariants(term).some((v) => v && textNormalized.includes(v));
 }
 
 // Suporta dois formatos:
-// - Novo (objeto): { main: "café", synonyms: ["pó de café"], excludes: ["xícara"] }
-// - Antigo (texto): "café -xícara -caneca" (ainda funciona, pra não quebrar
-//   quem já tinha palavras-chave cadastradas antes dessa mudança)
+// - Novo (objeto): { main: "café", synonyms: [...], require: ["500g"], excludes: [...] }
+//   - synonyms = "OU" (qualquer um desses termos já basta)
+//   - require = "E" (esse termo TAMBÉM precisa aparecer, além do principal/sinônimo)
+//   - excludes = "NÃO" (se tiver isso, descarta mesmo batendo o resto)
+// - Antigo (texto): "café -xícara -caneca" (ainda funciona)
 function parseKeyword(raw) {
   if (typeof raw === "string") {
     const parts = raw.split(/\s+-/).map((p) => p.trim()).filter(Boolean);
     const [main, ...excludes] = parts;
     return {
       positives: [normalize(main || "")],
+      require: [],
       excludes: excludes.map(normalize),
       label: main || "",
     };
   }
   const main = raw.main || "";
   const synonyms = raw.synonyms || [];
+  const require = raw.require || [];
   const excludes = raw.excludes || [];
+  const label = require.length > 0 ? `${main} ${require.join(" ")}`.trim() : main;
   return {
     positives: [main, ...synonyms].map(normalize).filter(Boolean),
+    require: require.map(normalize).filter(Boolean),
     excludes: excludes.map(normalize),
-    label: main,
+    label,
   };
 }
 
@@ -178,9 +200,10 @@ async function checkChannel(channel, keywords, couponLinks) {
       try {
         const textNormalized = normalize(text);
         const matched = keywords.find(
-          ({ positives, excludes }) =>
-            positives.some((p) => p && textNormalized.includes(p)) &&
-            !excludes.some((ex) => textNormalized.includes(ex))
+          ({ positives, require, excludes }) =>
+            positives.some((p) => p && textHasTerm(textNormalized, p)) &&
+            require.every((r) => textHasTerm(textNormalized, r)) &&
+            !excludes.some((ex) => textHasTerm(textNormalized, ex))
         );
         if (matched) {
           achados++;
