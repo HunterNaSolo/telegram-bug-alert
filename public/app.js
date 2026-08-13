@@ -359,6 +359,34 @@ function formatMoney(v) {
   return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function productLabel(text) {
+  const firstLine = (text || "").split("\n").map((l) => l.trim()).find(Boolean) || "";
+  return firstLine.length > 70 ? firstLine.slice(0, 70) + "…" : firstLine;
+}
+
+function populateItemFilter(tagFilteredItems) {
+  const select = $("#chart-item-filter");
+  const current = select.value;
+  const seen = new Set();
+  const products = [];
+  tagFilteredItems.forEach((item) => {
+    const label = productLabel(item.text);
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      products.push(label);
+    }
+  });
+
+  select.innerHTML = '<option value="">Todos os produtos dessa tag</option>';
+  products.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+  select.value = products.includes(current) ? current : "";
+}
+
 function populateTagFilter(allItems) {
   const select = $("#chart-product-filter");
   const current = select.value;
@@ -484,6 +512,13 @@ async function loadChart() {
       items = items.filter((i) => i.keyword === filterTag);
     }
 
+    // o filtro de produto só existe dentro da tag já escolhida
+    populateItemFilter(items);
+    const filterItem = $("#chart-item-filter").value;
+    if (filterItem) {
+      items = items.filter((i) => productLabel(i.text) === filterItem);
+    }
+
     items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     if (items.length === 0) {
@@ -500,10 +535,10 @@ async function loadChart() {
     canvas.classList.remove("hidden");
     emptyMsg.classList.add("hidden");
 
-    // Se uma tag específica está selecionada, mostra o resumo (min/max/variação)
-    // e a análise de padrão da mínima
+    // Só mostra resumo e padrão da mínima quando um PRODUTO específico está
+    // selecionado — só a tag ainda mistura itens diferentes (tamanhos, marcas)
     const patternCard = $("#chart-pattern-card");
-    if (filterTag) {
+    if (filterItem) {
       updateSummary(items);
       renderPricePattern(items);
       patternCard.classList.remove("hidden");
@@ -609,6 +644,7 @@ async function loadChart() {
 
 $("#chart-channel-filter").addEventListener("change", loadChart);
 $("#chart-product-filter").addEventListener("change", loadChart);
+$("#chart-item-filter").addEventListener("change", loadChart);
 $("#chart-period-filter").addEventListener("change", loadChart);
 
 // ---------- Init ----------
