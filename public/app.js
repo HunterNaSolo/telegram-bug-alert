@@ -185,47 +185,60 @@ function timeAgo(iso) {
   return `${Math.floor(hours / 24)}d atrás`;
 }
 
-const TAG_COLORS = ["#ff6b6b", "#4ecdc4", "#ffd93d", "#a78bfa", "#38bdf8", "#fb923c", "#a3e635", "#f472b6"];
+let allHistoryItems = [];
 
-function tagColor(tag) {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+function populateHistoryKeywordFilter() {
+  const select = $("#history-keyword-filter");
+  const current = select.value;
+  const keywords = [...new Set(allHistoryItems.map((i) => i.keyword).filter(Boolean))];
+  select.innerHTML = '<option value="">Todas as palavras-chave</option>';
+  keywords.forEach((k) => {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = k;
+    select.appendChild(opt);
+  });
+  select.value = keywords.includes(current) ? current : "";
+}
+
+function renderHistoryList() {
+  const listEl = $("#history-list");
+  const filter = $("#history-keyword-filter").value;
+  const items = filter ? allHistoryItems.filter((i) => i.keyword === filter) : allHistoryItems;
+
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="empty">Nenhum alerta encontrado com esse filtro</div>';
+    return;
+  }
+  listEl.innerHTML = items
+    .map(
+      (item) => `
+    <div class="history-item">
+      <div class="meta">
+        <span>${item.channel}</span>
+        <span>${timeAgo(item.timestamp)}</span>
+      </div>
+      <span class="keyword-badge">${item.keyword}</span>
+      <div class="text">${escapeHtml(item.text)}</div>
+      <a href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
+    </div>
+  `
+    )
+    .join("");
 }
 
 async function loadHistory() {
-  const listEl = $("#history-list");
   try {
     const data = await apiFetch("/api/history?limit=100");
-    const items = data.items || [];
-    if (items.length === 0) {
-      listEl.innerHTML = '<div class="empty">Nenhum alerta encontrado ainda</div>';
-      return;
-    }
-    listEl.innerHTML = items
-      .map((item) => {
-        const priceHtml =
-          typeof item.price === "number"
-            ? `<span class="deal-price-label">Preço encontrado</span><div class="deal-price">${formatMoney(item.price)}</div>`
-            : "";
-        return `
-      <div class="deal-card">
-        <div class="deal-card-header">
-          <div class="deal-card-header-left">
-            <span class="deal-tag" style="background:${tagColor(item.keyword)}">${escapeHtml(item.keyword)}</span>
-            <span class="deal-channel">${escapeHtml(item.channel)}</span>
-          </div>
-          <span class="deal-time">${timeAgo(item.timestamp)}</span>
-        </div>
-        ${priceHtml}
-        <div class="deal-text">${escapeHtml(item.text)}</div>
-        <a class="deal-link" href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
-      </div>
-    `;
-      })
-      .join("");
-  } catch (e) { console.error(e); }
+    allHistoryItems = data.items || [];
+    populateHistoryKeywordFilter();
+    renderHistoryList();
+  } catch (e) {
+    console.error(e);
+  }
 }
+
+$("#history-keyword-filter").addEventListener("change", renderHistoryList);
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -261,52 +274,22 @@ async function loadCoupons() {
       return;
     }
     listEl.innerHTML = items
-      .map((item) => {
-        const storeLabel = item.store ? ` · ${item.store}` : "";
-        const codeBox = item.couponCode
-          ? `<div class="coupon-code-box">
-               <span class="coupon-code-label">Código</span>
-               <span class="coupon-code">${escapeHtml(item.couponCode)}</span>
-               <button class="copy-code-btn" data-code="${escapeHtml(item.couponCode)}">Copiar</button>
-             </div>`
-          : "";
-        const storeLinkBtn = item.storeLink
-          ? `<a href="${item.storeLink}" target="_blank" rel="noopener" class="store-link-btn">Ir para a loja →</a>`
-          : "";
-        return `
-      <div class="deal-card">
-        <div class="deal-card-header">
-          <div class="deal-card-header-left">
-            <span class="deal-tag" style="background:#4ecdc4">CUPOM</span>
-            <span class="deal-channel">${escapeHtml(item.channel)}${storeLabel}</span>
-          </div>
-          <span class="deal-time">${timeLeft(item.timestamp)}</span>
+      .map(
+        (item) => `
+      <div class="history-item">
+        <div class="meta">
+          <span>${item.channel}</span>
+          <span>${timeLeft(item.timestamp)}</span>
         </div>
-        ${codeBox}
-        <div class="deal-text">${escapeHtml(item.text)}</div>
-        <div class="coupon-actions">
-          ${storeLinkBtn}
-          <a class="deal-link" href="${item.link}" target="_blank" rel="noopener">Ver no Telegram →</a>
-        </div>
+        <span class="keyword-badge" style="background:#2a9d8f;">CUPOM</span>
+        <div class="text">${escapeHtml(item.text)}</div>
+        <a href="${item.link}" target="_blank" rel="noopener">Abrir no Telegram →</a>
       </div>
-    `;
-      })
+    `
+      )
       .join("");
   } catch (e) { console.error(e); }
 }
-
-$("#coupons-list").addEventListener("click", async (ev) => {
-  const btn = ev.target.closest(".copy-code-btn");
-  if (!btn) return;
-  try {
-    await navigator.clipboard.writeText(btn.dataset.code);
-    const original = btn.textContent;
-    btn.textContent = "Copiado ✔";
-    setTimeout(() => (btn.textContent = original), 1500);
-  } catch (e) {
-    console.error(e);
-  }
-});
 
 $("#refresh-coupons-btn").addEventListener("click", loadCoupons);
 
@@ -327,209 +310,81 @@ function populateChannelFilter() {
   select.value = current || "";
 }
 
-function formatMoney(v) {
-  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function populateTagFilter(allItems) {
-  const select = $("#chart-product-filter");
-  const current = select.value;
-  const channelFilter = $("#chart-channel-filter").value;
-
-  const pool = channelFilter ? allItems.filter((i) => i.channel === channelFilter) : allItems;
-  const seen = new Set();
-  const tags = [];
-  pool.forEach((item) => {
-    const tag = item.keyword;
-    if (tag && !seen.has(tag)) {
-      seen.add(tag);
-      tags.push(tag);
-    }
-  });
-
-  select.innerHTML = '<option value="">Todas as tags</option>';
-  tags.forEach((t) => {
-    const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t;
-    select.appendChild(opt);
-  });
-  select.value = tags.includes(current) ? current : "";
-}
-
-function updateSummary(items) {
-  const summaryEl = $("#chart-summary");
-  if (items.length === 0) {
-    summaryEl.classList.add("hidden");
-    return;
-  }
-  summaryEl.classList.remove("hidden");
-  const prices = items.map((i) => i.price);
-  const current = prices[prices.length - 1];
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const first = prices[0];
-  const changePct = first === 0 ? 0 : ((current - first) / first) * 100;
-
-  $("#stat-current").textContent = formatMoney(current);
-  $("#stat-min").textContent = formatMoney(min);
-  $("#stat-max").textContent = formatMoney(max);
-
-  const changeEl = $("#stat-change");
-  const sign = changePct > 0 ? "+" : "";
-  changeEl.textContent = `${sign}${changePct.toFixed(1)}%`;
-  changeEl.className = "chart-stat-value " + (changePct < 0 ? "stat-low" : changePct > 0 ? "stat-high" : "");
-}
-
 async function loadChart() {
+  populateChannelFilter();
+  const data = await apiFetch("/api/history?limit=200");
+  let items = (data.items || []).filter((i) => typeof i.price === "number");
+
+  const filterChannel = $("#chart-channel-filter").value;
+  if (filterChannel) {
+    items = items.filter((i) => i.channel === filterChannel);
+  }
+
+  items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
   const canvas = $("#price-chart");
   const emptyMsg = $("#chart-empty");
-  const summaryEl = $("#chart-summary");
 
-  try {
-    populateChannelFilter();
-    const data = await apiFetch("/api/history?limit=2000");
-    let allItems = (data.items || []).filter((i) => typeof i.price === "number");
-
-    const periodDays = parseInt($("#chart-period-filter").value, 10);
-    if (periodDays > 0) {
-      const cutoff = Date.now() - periodDays * 24 * 60 * 60 * 1000;
-      allItems = allItems.filter((i) => new Date(i.timestamp).getTime() >= cutoff);
-    }
-
-    populateTagFilter(allItems);
-
-    let items = allItems;
-    const filterChannel = $("#chart-channel-filter").value;
-    if (filterChannel) {
-      items = items.filter((i) => i.channel === filterChannel);
-    }
-    const filterTag = $("#chart-product-filter").value;
-    if (filterTag) {
-      items = items.filter((i) => i.keyword === filterTag);
-    }
-
-    items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    if (items.length === 0) {
-      canvas.classList.add("hidden");
-      emptyMsg.classList.remove("hidden");
-      summaryEl.classList.add("hidden");
-      emptyMsg.textContent = "Nenhum preço detectado ainda nos alertas encontrados";
-      if (priceChartInstance) {
-        priceChartInstance.destroy();
-        priceChartInstance = null;
-      }
-      return;
-    }
-    canvas.classList.remove("hidden");
-    emptyMsg.classList.add("hidden");
-
-    // Se uma tag específica está selecionada, mostra o resumo (min/max/variação)
-    if (filterTag) {
-      updateSummary(items);
-    } else {
-      summaryEl.classList.add("hidden");
-    }
-
-    // agrupa por canal, um dataset (linha) por grupo
-    const byChannel = {};
-    items.forEach((item) => {
-      if (!byChannel[item.channel]) byChannel[item.channel] = [];
-      byChannel[item.channel].push({
-        x: item.timestamp,
-        y: item.price,
-      });
-    });
-
-    if (typeof Chart === "undefined") {
-      throw new Error("Biblioteca de gráficos não carregou (Chart.js).");
-    }
-
-    const channelNames = Object.keys(byChannel);
-    const datasets = channelNames.map((channel, idx) => {
-      const color = CHART_COLORS[idx % CHART_COLORS.length];
-      return {
-        label: channel,
-        data: byChannel[channel],
-        borderColor: color,
-        borderWidth: 2.5,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: color,
-        pointBorderColor: "#0f0f14",
-        pointBorderWidth: 1.5,
-        tension: 0.3,
-        spanGaps: true,
-        fill: true,
-        backgroundColor: (ctx) => {
-          const { chart } = ctx;
-          const { ctx: c, chartArea } = chart;
-          if (!chartArea) return `${color}22`;
-          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0, `${color}55`);
-          gradient.addColorStop(1, `${color}02`);
-          return gradient;
-        },
-      };
-    });
-
+  if (items.length === 0) {
+    canvas.classList.add("hidden");
+    emptyMsg.classList.remove("hidden");
     if (priceChartInstance) {
       priceChartInstance.destroy();
+      priceChartInstance = null;
     }
+    return;
+  }
+  canvas.classList.remove("hidden");
+  emptyMsg.classList.add("hidden");
 
-    priceChartInstance = new Chart(canvas, {
-      type: "line",
-      data: { datasets },
-      options: {
-        responsive: true,
-        interaction: { mode: "index", intersect: false },
-        scales: {
-          x: {
-            type: "time",
-            time: { tooltipFormat: "dd/MM HH:mm" },
-            ticks: { color: "#9a9aa5" },
-            grid: { color: "#20202a" },
-            border: { color: "#2a2a34" },
-          },
-          y: {
-            ticks: { color: "#9a9aa5", callback: (v) => `R$ ${v}` },
-            grid: { color: "#20202a" },
-            border: { color: "#2a2a34" },
-          },
+  // agrupa por canal, um dataset (linha) por grupo
+  const byChannel = {};
+  items.forEach((item) => {
+    if (!byChannel[item.channel]) byChannel[item.channel] = [];
+    byChannel[item.channel].push({
+      x: item.timestamp,
+      y: item.price,
+    });
+  });
+
+  const datasets = Object.keys(byChannel).map((channel, idx) => ({
+    label: channel,
+    data: byChannel[channel],
+    borderColor: CHART_COLORS[idx % CHART_COLORS.length],
+    backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
+    tension: 0.2,
+    spanGaps: true,
+  }));
+
+  if (priceChartInstance) {
+    priceChartInstance.destroy();
+  }
+
+  priceChartInstance = new Chart(canvas, {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true,
+      scales: {
+        x: {
+          type: "time",
+          time: { tooltipFormat: "dd/MM HH:mm" },
+          ticks: { color: "#9a9aa5" },
+          grid: { color: "#2a2a34" },
         },
-        plugins: {
-          legend: {
-            display: channelNames.length > 1,
-            labels: { color: "#f1f1f1", usePointStyle: true, boxWidth: 8 },
-          },
-          tooltip: {
-            backgroundColor: "#1a1a22",
-            titleColor: "#f1f1f1",
-            bodyColor: "#f1f1f1",
-            borderColor: "#2a2a34",
-            borderWidth: 1,
-            padding: 10,
-            displayColors: true,
-            callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.parsed.y)}`,
-            },
-          },
+        y: {
+          ticks: { color: "#9a9aa5", callback: (v) => `R$ ${v}` },
+          grid: { color: "#2a2a34" },
         },
       },
-    });
-  } catch (e) {
-    console.error(e);
-    canvas.classList.add("hidden");
-    summaryEl.classList.add("hidden");
-    emptyMsg.classList.remove("hidden");
-    emptyMsg.textContent = `Não foi possível carregar o gráfico: ${e.message}`;
-  }
+      plugins: {
+        legend: { labels: { color: "#f1f1f1" } },
+      },
+    },
+  });
 }
 
 $("#chart-channel-filter").addEventListener("change", loadChart);
-$("#chart-product-filter").addEventListener("change", loadChart);
-$("#chart-period-filter").addEventListener("change", loadChart);
 
 // ---------- Init ----------
 if (getPassword()) {
