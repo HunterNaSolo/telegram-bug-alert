@@ -135,9 +135,11 @@ function renderKeywordChips() {
     const isOld = typeof kw === "string";
     const main = isOld ? kw.split(/\s+-/)[0].trim() : kw.main;
     const synCount = isOld ? 0 : (kw.synonyms || []).length;
+    const reqCount = isOld ? 0 : (kw.require || []).length;
     const excCount = isOld ? kw.split(/\s+-/).length - 1 : (kw.excludes || []).length;
     const details = [];
     if (synCount > 0) details.push(`+${synCount} outra(s)`);
+    if (reqCount > 0) details.push(`E ${(kw.require || []).join("/")}`);
     if (excCount > 0) details.push(`-${excCount} exclusão(ões)`);
 
     const chip = document.createElement("div");
@@ -167,20 +169,23 @@ function renderKeywordChips() {
 function startEditKeyword(idx) {
   const kw = state.keywords[idx];
   const isOld = typeof kw === "string";
-  let main, synonyms, excludes;
+  let main, synonyms, require, excludes;
   if (isOld) {
     const parts = kw.split(/\s+-/).map((p) => p.trim()).filter(Boolean);
     main = parts[0] || "";
     synonyms = [];
+    require = [];
     excludes = parts.slice(1);
   } else {
     main = kw.main || "";
     synonyms = kw.synonyms || [];
+    require = kw.require || [];
     excludes = kw.excludes || [];
   }
 
   $("#keyword-main-input").value = main;
   $("#keyword-synonyms-input").value = synonyms.join(", ");
+  $("#keyword-require-input").value = require.join(", ");
   $("#keyword-excludes-input").value = excludes.join(", ");
 
   editingKeywordIndex = idx;
@@ -193,6 +198,7 @@ function cancelEditKeyword() {
   editingKeywordIndex = null;
   $("#keyword-main-input").value = "";
   $("#keyword-synonyms-input").value = "";
+  $("#keyword-require-input").value = "";
   $("#keyword-excludes-input").value = "";
   $("#add-keyword-btn").textContent = "Adicionar";
   $("#cancel-edit-keyword-btn").classList.add("hidden");
@@ -231,18 +237,23 @@ $("#add-keyword-btn").addEventListener("click", () => {
     .value.split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const require = $("#keyword-require-input")
+    .value.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const excludes = $("#keyword-excludes-input")
     .value.split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
   if (editingKeywordIndex !== null) {
-    state.keywords[editingKeywordIndex] = { main, synonyms, excludes };
+    state.keywords[editingKeywordIndex] = { main, synonyms, require, excludes };
     cancelEditKeyword();
   } else {
-    state.keywords.push({ main, synonyms, excludes });
+    state.keywords.push({ main, synonyms, require, excludes });
     $("#keyword-main-input").value = "";
     $("#keyword-synonyms-input").value = "";
+    $("#keyword-require-input").value = "";
     $("#keyword-excludes-input").value = "";
   }
   renderConfig();
