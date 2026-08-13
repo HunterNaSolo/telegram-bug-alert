@@ -121,6 +121,8 @@ function renderChips(listEl, items, onRemove) {
   });
 }
 
+let editingKeywordIndex = null;
+
 function renderKeywordChips() {
   const container = $("#keywords-list");
   if (state.keywords.length === 0) {
@@ -143,15 +145,57 @@ function renderKeywordChips() {
     chip.innerHTML = `<span>${escapeHtml(main)}${
       details.length ? ` <span style="color:#8b8b96;font-size:11px;">(${details.join(", ")})</span>` : ""
     }</span>`;
+
+    const editBtn = document.createElement("button");
+    editBtn.textContent = "✎";
+    editBtn.title = "Editar";
+    editBtn.addEventListener("click", () => startEditKeyword(idx));
+    chip.appendChild(editBtn);
+
     const removeBtn = document.createElement("button");
     removeBtn.textContent = "×";
     removeBtn.addEventListener("click", () => {
       state.keywords.splice(idx, 1);
+      if (editingKeywordIndex === idx) cancelEditKeyword();
       renderConfig();
     });
     chip.appendChild(removeBtn);
     container.appendChild(chip);
   });
+}
+
+function startEditKeyword(idx) {
+  const kw = state.keywords[idx];
+  const isOld = typeof kw === "string";
+  let main, synonyms, excludes;
+  if (isOld) {
+    const parts = kw.split(/\s+-/).map((p) => p.trim()).filter(Boolean);
+    main = parts[0] || "";
+    synonyms = [];
+    excludes = parts.slice(1);
+  } else {
+    main = kw.main || "";
+    synonyms = kw.synonyms || [];
+    excludes = kw.excludes || [];
+  }
+
+  $("#keyword-main-input").value = main;
+  $("#keyword-synonyms-input").value = synonyms.join(", ");
+  $("#keyword-excludes-input").value = excludes.join(", ");
+
+  editingKeywordIndex = idx;
+  $("#add-keyword-btn").textContent = "Salvar edição";
+  $("#cancel-edit-keyword-btn").classList.remove("hidden");
+  $("#keyword-main-input").focus();
+}
+
+function cancelEditKeyword() {
+  editingKeywordIndex = null;
+  $("#keyword-main-input").value = "";
+  $("#keyword-synonyms-input").value = "";
+  $("#keyword-excludes-input").value = "";
+  $("#add-keyword-btn").textContent = "Adicionar";
+  $("#cancel-edit-keyword-btn").classList.add("hidden");
 }
 
 function renderConfig() {
@@ -192,12 +236,19 @@ $("#add-keyword-btn").addEventListener("click", () => {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  state.keywords.push({ main, synonyms, excludes });
-  $("#keyword-main-input").value = "";
-  $("#keyword-synonyms-input").value = "";
-  $("#keyword-excludes-input").value = "";
+  if (editingKeywordIndex !== null) {
+    state.keywords[editingKeywordIndex] = { main, synonyms, excludes };
+    cancelEditKeyword();
+  } else {
+    state.keywords.push({ main, synonyms, excludes });
+    $("#keyword-main-input").value = "";
+    $("#keyword-synonyms-input").value = "";
+    $("#keyword-excludes-input").value = "";
+  }
   renderConfig();
 });
+
+$("#cancel-edit-keyword-btn").addEventListener("click", cancelEditKeyword);
 
 $("#save-config-btn").addEventListener("click", async () => {
   const statusEl = $("#save-status");
