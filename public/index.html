@@ -118,6 +118,30 @@
         <canvas id="price-chart" height="260"></canvas>
         <div id="chart-empty" class="empty hidden">Nenhum preço detectado ainda nos alertas encontrados</div>
       </div>
+
+      <div id="chart-pattern-card" class="card hidden">
+        <h2>Padrão da mínima</h2>
+        <p class="hint">Baseado só no histórico já visto — não é uma garantia, é um retrato do que costumou acontecer até agora. Escolha uma tag específica acima pra ver isso.</p>
+        <div class="chart-summary">
+          <div class="chart-stat">
+            <span class="chart-stat-label">Já bateu na mínima</span>
+            <span id="stat-freq" class="chart-stat-value">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Intervalo médio</span>
+            <span id="stat-interval" class="chart-stat-value">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Última mínima</span>
+            <span id="stat-last-low" class="chart-stat-value">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Próxima janela estimada</span>
+            <span id="stat-next-low" class="chart-stat-value stat-high">—</span>
+          </div>
+        </div>
+        <p id="chart-pattern-note" class="hint" style="margin-top: 8px; margin-bottom: 0;"></p>
+      </div>
     </section>
   </main>
 </div>

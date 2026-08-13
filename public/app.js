@@ -409,6 +409,53 @@ function updateSummary(items) {
   changeEl.className = "chart-stat-value " + (changePct < 0 ? "stat-low" : changePct > 0 ? "stat-high" : "");
 }
 
+function renderPricePattern(items) {
+  const prices = items.map((i) => i.price);
+  const min = Math.min(...prices);
+  const threshold = min * 1.05; // considera "perto da mínima" até 5% acima dela
+  const lows = items
+    .filter((i) => i.price <= threshold)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const freqPct = (lows.length / items.length) * 100;
+  $("#stat-freq").textContent = `${lows.length} de ${items.length} (${freqPct.toFixed(0)}%)`;
+
+  const lastLow = lows[lows.length - 1];
+  $("#stat-last-low").textContent = lastLow
+    ? new Date(lastLow.timestamp).toLocaleDateString("pt-BR")
+    : "—";
+
+  const noteEl = $("#chart-pattern-note");
+
+  if (lows.length < 2) {
+    $("#stat-interval").textContent = "—";
+    $("#stat-next-low").textContent = "—";
+    noteEl.textContent =
+      "Só vimos o preço perto da mínima 1 vez (ou nenhuma) até agora — ainda não dá pra estimar um intervalo. Quanto mais alertas forem chegando, mais confiável essa estimativa fica.";
+    return;
+  }
+
+  const gaps = [];
+  for (let i = 1; i < lows.length; i++) {
+    const days = (new Date(lows[i].timestamp) - new Date(lows[i - 1].timestamp)) / 86400000;
+    gaps.push(days);
+  }
+  const avgGapDays = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+
+  $("#stat-interval").textContent = `${Math.round(avgGapDays)} dia(s)`;
+
+  const nextEstimate = new Date(new Date(lastLow.timestamp).getTime() + avgGapDays * 86400000);
+  const today = new Date();
+  const daysFromNow = Math.round((nextEstimate - today) / 86400000);
+
+  $("#stat-next-low").textContent = nextEstimate.toLocaleDateString("pt-BR");
+
+  noteEl.textContent =
+    daysFromNow > 0
+      ? `Baseado no padrão até agora (${lows.length} vezes perto da mínima, a cada ${Math.round(avgGapDays)} dias em média), a próxima janela parecida deve ficar perto de ${nextEstimate.toLocaleDateString("pt-BR")} — não é garantido, é só o retrato do que já aconteceu.`
+      : `O padrão sugere que já passou da janela esperada — pode ser que role de novo a qualquer momento, ou o padrão mudou. Isso não é uma previsão confiável, só um retrato do histórico.`;
+}
+
 async function loadChart() {
   const canvas = $("#price-chart");
   const emptyMsg = $("#chart-empty");
@@ -454,10 +501,15 @@ async function loadChart() {
     emptyMsg.classList.add("hidden");
 
     // Se uma tag específica está selecionada, mostra o resumo (min/max/variação)
+    // e a análise de padrão da mínima
+    const patternCard = $("#chart-pattern-card");
     if (filterTag) {
       updateSummary(items);
+      renderPricePattern(items);
+      patternCard.classList.remove("hidden");
     } else {
       summaryEl.classList.add("hidden");
+      patternCard.classList.add("hidden");
     }
 
     // agrupa por canal, um dataset (linha) por grupo
