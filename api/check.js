@@ -16,21 +16,35 @@ function normalize(str) {
     .toLowerCase();
 }
 
-// Suporta sintaxe "café -xícara -caneca": a frase antes do primeiro " -" é o
-// termo positivo obrigatório, e cada " -termo" seguinte é uma exclusão —
-// se a mensagem contiver qualquer termo de exclusão, ela é descartada mesmo
-// batendo com o termo positivo.
+// Suporta dois formatos:
+// - Novo (objeto): { main: "café", synonyms: ["pó de café"], excludes: ["xícara"] }
+// - Antigo (texto): "café -xícara -caneca" (ainda funciona, pra não quebrar
+//   quem já tinha palavras-chave cadastradas antes dessa mudança)
 function parseKeyword(raw) {
-  const parts = raw.split(/\s+-/).map((p) => normalize(p.trim())).filter(Boolean);
-  const [positive, ...excludes] = parts;
-  return { positive, excludes };
+  if (typeof raw === "string") {
+    const parts = raw.split(/\s+-/).map((p) => p.trim()).filter(Boolean);
+    const [main, ...excludes] = parts;
+    return {
+      positives: [normalize(main || "")],
+      excludes: excludes.map(normalize),
+      label: main || "",
+    };
+  }
+  const main = raw.main || "";
+  const synonyms = raw.synonyms || [];
+  const excludes = raw.excludes || [];
+  return {
+    positives: [main, ...synonyms].map(normalize).filter(Boolean),
+    excludes: excludes.map(normalize),
+    label: main,
+  };
 }
 
 async function getConfig() {
   const config = (await redis.get(CONFIG_KEY)) || {};
   return {
     channels: config.channels || [],
-    keywords: (config.keywords || ["BUG"]).map((k) => parseKeyword(k)),
+    keywords: (config.keywords || ["BUG"]).map(parseKeyword),
   };
 }
 
@@ -164,19 +178,18 @@ async function checkChannel(channel, keywords, couponLinks) {
       try {
         const textNormalized = normalize(text);
         const matched = keywords.find(
-          ({ positive, excludes }) =>
-            positive &&
-            textNormalized.includes(positive) &&
+          ({ positives, excludes }) =>
+            positives.some((p) => p && textNormalized.includes(p)) &&
             !excludes.some((ex) => textNormalized.includes(ex))
         );
         if (matched) {
           achados++;
           const link = `https://t.me/${channel}/${msgId}`;
           const price = extractPrice(text);
-          await sendNotification(channel, matched.positive, text, link);
+          await sendNotification(channel, matched.label, text, link);
           await saveHistory({
             channel,
-            keyword: matched.positive,
+            keyword: matched.label,
             text: text.slice(0, 500),
             link,
             price,
