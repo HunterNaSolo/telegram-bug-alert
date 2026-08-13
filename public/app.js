@@ -365,9 +365,18 @@ function productLabel(text) {
 }
 
 function extractSize(text) {
-  const match = (text || "").match(/(\d+(?:[.,]\d+)?)\s?(ml|l|kg|g)\b/i);
+  const match = (text || "").match(/(\d+(?:[.,]\d+)?)\s?(ml|mililitros?|l|litros?|kg|quilos?|g|gramas?)\b/i);
   if (!match) return null;
-  return `${match[1]}${match[2].toUpperCase()}`;
+  const num = match[1].replace(",", ".");
+  const unitRaw = match[2].toLowerCase();
+  let unit = "UN";
+  if (unitRaw.startsWith("ml") || unitRaw.startsWith("mili")) unit = "ML";
+  else if (unitRaw.startsWith("l")) unit = "L";
+  else if (unitRaw.startsWith("kg") || unitRaw.startsWith("quilo")) unit = "KG";
+  else if (unitRaw.startsWith("g")) unit = "G";
+  // normaliza "5.0" -> "5", e garante que vírgula/ponto viram sempre a mesma chave
+  const cleanNum = parseFloat(num).toString();
+  return `${cleanNum}${unit}`;
 }
 
 function groupingKey(text) {
@@ -375,29 +384,6 @@ function groupingKey(text) {
   // — é o que geralmente diferencia produtos que caem na mesma tag, tipo
   // sabão de 900ml vs 5L. Sem tamanho identificável, cai pro texto resumido.
   return extractSize(text) || productLabel(text);
-}
-
-function populateItemFilter(tagFilteredItems) {
-  const select = $("#chart-item-filter");
-  const current = select.value;
-  const seen = new Set();
-  const products = [];
-  tagFilteredItems.forEach((item) => {
-    const label = groupingKey(item.text);
-    if (label && !seen.has(label)) {
-      seen.add(label);
-      products.push(label);
-    }
-  });
-
-  select.innerHTML = '<option value="">Todos os produtos dessa tag</option>';
-  products.forEach((p) => {
-    const opt = document.createElement("option");
-    opt.value = p;
-    opt.textContent = p;
-    select.appendChild(opt);
-  });
-  select.value = products.includes(current) ? current : "";
 }
 
 function populateTagFilter(allItems) {
@@ -525,13 +511,6 @@ async function loadChart() {
       items = items.filter((i) => i.keyword === filterTag);
     }
 
-    // o filtro de produto só existe dentro da tag já escolhida
-    populateItemFilter(items);
-    const filterItem = $("#chart-item-filter").value;
-    if (filterItem) {
-      items = items.filter((i) => groupingKey(i.text) === filterItem);
-    }
-
     items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     if (items.length === 0) {
@@ -548,10 +527,9 @@ async function loadChart() {
     canvas.classList.remove("hidden");
     emptyMsg.classList.add("hidden");
 
-    // Só mostra resumo e padrão da mínima quando um PRODUTO específico está
-    // selecionado — só a tag ainda mistura itens diferentes (tamanhos, marcas)
+    // Mostra resumo e padrão da mínima quando uma tag específica está selecionada
     const patternCard = $("#chart-pattern-card");
-    if (filterItem) {
+    if (filterTag) {
       updateSummary(items);
       renderPricePattern(items);
       patternCard.classList.remove("hidden");
@@ -657,7 +635,6 @@ async function loadChart() {
 
 $("#chart-channel-filter").addEventListener("change", loadChart);
 $("#chart-product-filter").addEventListener("change", loadChart);
-$("#chart-item-filter").addEventListener("change", loadChart);
 $("#chart-period-filter").addEventListener("change", loadChart);
 
 // ---------- Init ----------
