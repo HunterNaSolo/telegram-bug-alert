@@ -7,9 +7,12 @@
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#e63946" />
 <link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
 
@@ -51,10 +54,10 @@
 
       <div class="card">
         <h2>Palavras-chave</h2>
-        <p class="hint">O alerta dispara se qualquer uma dessas palavras aparecer na mensagem.</p>
+        <p class="hint">O alerta dispara se qualquer uma dessas palavras aparecer na mensagem. Pra excluir termos (ex: quer "café" mas não "xícara" ou "caneca"), escreva <code>café -xícara -caneca</code>.</p>
         <div id="keywords-list" class="chip-list"></div>
         <div class="add-row">
-          <input id="keyword-input" type="text" placeholder="ex: BUG" />
+          <input id="keyword-input" type="text" placeholder="ex: café -xícara -caneca" />
           <button id="add-keyword-btn">Adicionar</button>
         </div>
       </div>
@@ -85,8 +88,33 @@
         <h2>Tendência de preço</h2>
         <p class="hint">Mostra o valor (R$) detectado nas mensagens que bateram com suas palavras-chave, ao longo do tempo.</p>
         <select id="chart-channel-filter"></select>
+        <select id="chart-product-filter" style="margin-top: 10px;"></select>
+        <select id="chart-period-filter" style="margin-top: 10px;">
+          <option value="7">Últimos 7 dias</option>
+          <option value="30" selected>Últimos 30 dias</option>
+          <option value="0">Tudo</option>
+        </select>
+        <p class="hint" style="margin-top: 10px; margin-bottom: 0;">O filtro de tags usa as palavras-chave que você cadastrou na aba Configurar.</p>
       </div>
       <div class="card">
+        <div id="chart-summary" class="chart-summary hidden">
+          <div class="chart-stat">
+            <span class="chart-stat-label">Atual</span>
+            <span id="stat-current" class="chart-stat-value">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Mínima</span>
+            <span id="stat-min" class="chart-stat-value stat-low">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Máxima</span>
+            <span id="stat-max" class="chart-stat-value stat-high">—</span>
+          </div>
+          <div class="chart-stat">
+            <span class="chart-stat-label">Variação</span>
+            <span id="stat-change" class="chart-stat-value">—</span>
+          </div>
+        </div>
         <canvas id="price-chart" height="260"></canvas>
         <div id="chart-empty" class="empty hidden">Nenhum preço detectado ainda nos alertas encontrados</div>
       </div>
