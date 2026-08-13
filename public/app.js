@@ -364,13 +364,26 @@ function productLabel(text) {
   return firstLine.length > 70 ? firstLine.slice(0, 70) + "…" : firstLine;
 }
 
+function extractSize(text) {
+  const match = (text || "").match(/(\d+(?:[.,]\d+)?)\s?(ml|l|kg|g)\b/i);
+  if (!match) return null;
+  return `${match[1]}${match[2].toUpperCase()}`;
+}
+
+function groupingKey(text) {
+  // Agrupa por tamanho/quantidade quando dá pra identificar (ex: "5L", "900ML")
+  // — é o que geralmente diferencia produtos que caem na mesma tag, tipo
+  // sabão de 900ml vs 5L. Sem tamanho identificável, cai pro texto resumido.
+  return extractSize(text) || productLabel(text);
+}
+
 function populateItemFilter(tagFilteredItems) {
   const select = $("#chart-item-filter");
   const current = select.value;
   const seen = new Set();
   const products = [];
   tagFilteredItems.forEach((item) => {
-    const label = productLabel(item.text);
+    const label = groupingKey(item.text);
     if (label && !seen.has(label)) {
       seen.add(label);
       products.push(label);
@@ -516,7 +529,7 @@ async function loadChart() {
     populateItemFilter(items);
     const filterItem = $("#chart-item-filter").value;
     if (filterItem) {
-      items = items.filter((i) => productLabel(i.text) === filterItem);
+      items = items.filter((i) => groupingKey(i.text) === filterItem);
     }
 
     items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
