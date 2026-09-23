@@ -272,7 +272,7 @@ $("#save-config-btn").addEventListener("click", async () => {
     statusEl.textContent = "Salvo com sucesso ✔";
     setTimeout(() => (statusEl.textContent = ""), 3000);
   } catch (e) {
-    statusEl.textContent = "Erro ao salvar";
+    statusEl.textContent = `Erro ao salvar: ${e.message}`;
   }
 });
 
